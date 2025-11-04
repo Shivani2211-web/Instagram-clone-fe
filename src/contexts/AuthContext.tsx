@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import api from '../api/api';
 
-interface User {
+export interface User {
   id: string;
   username: string;
   email: string;
@@ -18,7 +18,7 @@ interface User {
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (credentials: { emailOrUsername: string; password: string }) => Promise<void>;
   register: (userData: {
     username: string;
     email: string;
@@ -69,8 +69,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
+  const login = async (credentials: { emailOrUsername: string; password: string }) => {
+    const response = await api.post('/auth/login', credentials);
     const { token, user } = response.data;
     
     localStorage.setItem('token', token);

@@ -1,99 +1,117 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Container, CircularProgress, Fab, Typography, Button } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
-import Stories from '../components/stories/Stories';
-import Post from '../components/posts/Post';
+import { Box, Container, CircularProgress } from '@mui/material';
+import { useAuth } from '../contexts/AuthContext';
 import { postsAPI } from '../api/endpoints';
+import Post from '../components/posts/Post';
+import Stories from '../components/stories/Stories';
+import '../styles.css';
 
-interface Post {
-  id: string;
+interface User {
+  _id: string;
   username: string;
-  userAvatar: string;
-  image: string;
-  caption: string;
-  likes: number;
-  comments: number;
-  createdAt: string;
-  isLiked?: boolean;
-  isSaved?: boolean;
+  name?: string;
+  avatar?: {
+    url?: string;
+  };
 }
 
-const formatTimeAgo = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
-  let interval = Math.floor(seconds / 31536000);
-  if (interval >= 1) return `${interval} YEAR${interval === 1 ? '' : 'S'} AGO`;
-  
-  interval = Math.floor(seconds / 2592000);
-  if (interval >= 1) return `${interval} MONTH${interval === 1 ? '' : 'S'} AGO`;
-  
-  interval = Math.floor(seconds / 86400);
-  if (interval >= 1) return `${interval} DAY${interval === 1 ? '' : 'S'} AGO`;
-  
-  interval = Math.floor(seconds / 3600);
-  if (interval >= 1) return `${interval} HOUR${interval === 1 ? '' : 'S'} AGO`;
-  
-  interval = Math.floor(seconds / 60);
-  if (interval >= 1) return `${interval} MINUTE${interval === 1 ? '' : 'S'} AGO`;
-  
-  return 'JUST NOW';
-};
+interface Comment {
+  _id: string;
+  user: User;
+  text: string;
+  createdAt: string;
+}
+
+interface PostType {
+  _id: string;
+  user: User;
+  image?: string;
+  media?: Array<{ url: string }>;
+  caption: string;
+  likes: Array<{ user: string }>;
+  comments: Comment[];
+  createdAt: string;
+}
+
 
 const Home = () => {
-  const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const navigate = useNavigate();
-  // const { currentUser } = useAuth();
+    const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const response = await postsAPI.getAllPosts();
+        setError(null);
         
-        // Check if response.data exists and has a data array
-        if (!response.data?.success || !Array.isArray(response.data.data)) {
-          console.error('Invalid posts data format:', response.data);
-          return;
+        const response = await postsAPI.getAllPosts();
+        console.log('Posts API Response:', response);
+
+        if (response.status !== 200) {
+          throw new Error(`Failed to fetch posts: ${response.statusText}`);
         }
 
-        const formattedPosts = response.data.data.map((post: any) => ({
-          id: post._id,
-          username: post.user?.username || '',
-          userAvatar: post.user?.avatar || '',
-          image: post.image,
-          caption: post.text || '',
-          likes: post.likes?.length || 0,
-          comments: post.comments?.length || 0,
-          createdAt: post.createdAt || new Date().toISOString(),
-          isLiked: post.likes?.some((like: any) => like.user === 'current-user-id'),
-          isSaved: false
+        if (!response.data) {
+          throw new Error('No data received from the server');
+        }
+
+        // Handle different response formats
+        const postsData = Array.isArray(response.data) 
+          ? response.data 
+          : (response.data.data || response.data.posts || []);
+
+        if (!Array.isArray(postsData)) {
+          throw new Error('Invalid posts data format');
+        }
+
+        const formattedPosts = postsData.map((post: any) => ({
+          _id: post._id,
+          user: {
+            _id: post.user?._id || post.userId || 'unknown',
+            username: post.user?.username || 'unknown',
+            name: post.user?.name,
+            avatar: post.user?.avatar
+          },
+          image: post.image || post.media?.[0]?.url || '',
+          caption: post.caption || '',
+          likes: Array.isArray(post.likes) ? post.likes : [],
+          comments: Array.isArray(post.comments) ? post.comments : [],
+          createdAt: post.createdAt || new Date().toISOString()
         }));
-        
+
         setPosts(formattedPosts);
-      } catch (error) {
-        console.error('Failed to fetch posts:', error);
-        // You can set an error state here to show to the user
+      } catch (err: any) {
+        console.error('Error fetching posts:', err);
+        setError(err.message || 'Failed to load posts. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchPosts();
-  }, []);
+  }, [currentUser?.id]);
+
+  const handlePostUpdate = (postId: string) => {
+    // If you need to update the post data, you can fetch it again here
+    // For now, we'll just trigger a refetch of all posts
+    fetchPosts();
+  };
+
+  const handlePostDelete = (postId: string) => {
+    setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
+  };
 
   if (loading) {
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
         minHeight="80vh"
         sx={{
-          background: 'linear-gradient(to bottom, #fafafa, #e0e0e0)'
+          backgroundColor: '#121212'
         }}
       >
         <CircularProgress sx={{ color: '#0095f6' }} />
@@ -104,145 +122,88 @@ const Home = () => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
         backgroundColor: '#fafafa',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        overflow: 'hidden',
+        minHeight: '100vh',
+        color: '#262626',
+        paddingTop: '30px',
       }}
     >
-      <Box 
+      <Container
+        maxWidth="md"
         sx={{
-          flex: '0 0 auto',
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid #dbdbdb',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '24px',
+          padding: { xs: '0 16px', sm: '0 20px' },
         }}
       >
-        <Container maxWidth="md" sx={{ p: 0 }}>
-          <Box sx={{ 
+        {/* Stories Section */}
+        <Box 
+          sx={{
+            width: '100%',
+            backgroundColor: 'white',
+            border: '1px solid #dbdbdb',
+            borderRadius: '8px',
+            padding: '16px',
             overflowX: 'auto',
-            py: 2,
-            px: 2,
             '&::-webkit-scrollbar': {
               display: 'none',
             },
-            msOverflowStyle: 'none',
             scrollbarWidth: 'none',
-          }}>
-            <Stories />
-          </Box>
-        </Container>
-      </Box>
-
-      {/* Scrollable content */}
-      <Box sx={{
-        flex: '1 1 auto',
-        overflowY: 'auto',
-        '&::-webkit-scrollbar': {
-          width: '6px',
-        },
-        '&::-webkit-scrollbar-track': {
-          background: '#f1f1f1',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          background: '#888',
-          borderRadius: '3px',
-        },
-        '&::-webkit-scrollbar-thumb:hover': {
-          background: '#555',
-        },
-      }}>
-        <Container 
-          maxWidth="md"
-          sx={{
-            backgroundColor: '#ffffff',
-            p: 0,
-            borderLeft: '1px solid #dbdbdb',
-            borderRight: '1px solid #dbdbdb',
-            minHeight: 'calc(100vh - 73px)', // Adjust based on your header height
           }}
         >
-          <Box sx={{ maxWidth: '614px', mx: 'auto', py: 2 }}>
-          {posts.length > 0 ? (
-            posts.map((post) => (
-              <Box 
-                key={post.id}
-                sx={{
-                  mb: 4,
-                  border: '1px solid #dbdbdb',
-                  borderRadius: '3px',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <Post 
-                  username={post.username}
-                  userAvatar={post.userAvatar}
-                  image={post.image}
-                  caption={post.caption}
-                  likes={post.likes}
-                  comments={post.comments}
-                  timestamp={formatTimeAgo(post.createdAt)}
-                  isLiked={post.isLiked}
-                  isSaved={post.isSaved}
-                />
-              </Box>
-            ))
-          ) : (
-            <Box 
-              textAlign="center" 
-              py={8}
-              sx={{
-                backgroundColor: '#ffffff',
-                borderRadius: '8px',
-                p: 4,
-                mt: 4,
-                border: '1px solid #dbdbdb'
-              }}
-            >
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No Posts Yet
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Follow users to see their posts here.
-              </Typography>
-              <Button
-                variant="contained" 
-                color="primary" 
-                sx={{ mt: 2, textTransform: 'none' }}
-                onClick={() => navigate('/explore')}
-              >
-                Explore Users
-              </Button>
-            </Box>
-          )}
+          <Stories />
         </Box>
 
-        {/* Create Post FAB */}
-        <Fab 
-          color="primary" 
-          aria-label="add"
+        {/* Error Message */}
+        {error && (
+          <Box 
+            sx={{ 
+              width: '100%',
+              color: 'error.main',
+              backgroundColor: 'rgba(237, 73, 86, 0.1)',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              textAlign: 'center',
+            }}
+          >
+            {error}
+          </Box>
+        )}
+
+        {/* Posts Feed */}
+        <Box 
           sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            background: 'linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d)',
-            '&:hover': {
-              transform: 'scale(1.05)',
-              transition: 'all 0.2s ease-in-out'
-            },
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+            width: '100%',
+            maxWidth: '614px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            marginBottom: '30px',
           }}
-          onClick={() => navigate('/create')}
         >
-          <AddIcon />
-        </Fab>
+          {posts.map((post) => (
+            <Box
+              key={post._id}
+              sx={{
+                backgroundColor: 'white',
+                border: '1px solid #dbdbdb',
+                borderRadius: '8px',
+                overflow: 'hidden',
+              }}
+            >
+              <Post
+                post={post}
+                currentUserId={currentUser?.id}
+                onUpdate={handlePostUpdate}
+                onDelete={handlePostDelete}
+              />
+            </Box>
+          ))}
+        </Box>
       </Container>
     </Box>
-    </Box>  
   );
 };
 

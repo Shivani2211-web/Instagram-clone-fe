@@ -13,11 +13,11 @@ import {
 import { 
   Close as CloseIcon, 
   NavigateBefore as BackIcon, 
-//   NavigateNext as NextIcon,
   TagFaces as EmojiIcon,
   AddLocation as LocationIcon,
   Collections as GalleryIcon
 } from '@mui/icons-material';
+import { uploadAPI, postsAPI } from '../api/endpoints';
 
 const CreatePost = () => {
   const navigate = useNavigate();
@@ -29,17 +29,46 @@ const CreatePost = () => {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && file.type.startsWith('image/')) {
       const imageUrl = URL.createObjectURL(file);
       setSelectedImage(imageUrl);
       setStep(2);
+    } else {
+      // Show error message to user
+      console.error('Please select a valid image file');
     }
   };
 
-  const handleShare = () => {
-    // Handle post creation logic
-    console.log('Creating post with:', { caption, location, selectedImage });
-    navigate('/');
+  const handleShare = async () => {
+    if (!selectedImage) return;
+    
+    try {
+      // If the selected image is already a URL (like from Google Photos), use it directly
+      let imageUrl = selectedImage;
+      
+      // Only try to upload if it's a local file (data URL)
+      if (selectedImage.startsWith('data:')) {
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        const file = new File([blob], 'post-image.jpg', { type: 'image/jpeg' });
+        
+        // Upload the image
+        const uploadResponse = await uploadAPI.uploadImage(file);
+        imageUrl = uploadResponse.data.url;
+      }
+      
+      // Create the post with the image URL
+      await postsAPI.createPost({
+        text: caption,
+        image: imageUrl,
+        location: location || undefined
+      });
+      
+      navigate('/');
+    } catch (error) {
+      console.error('Error creating post:', error);
+      // Handle error (show error message to user)
+    }
   };
 
   const renderStep1 = () => (

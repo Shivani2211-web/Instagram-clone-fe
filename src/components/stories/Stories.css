@@ -1,0 +1,60 @@
+/* src/components/stories/Stories.css */
+
+.stories-wrapper {
+  width: 100%;
+  background: #fff;
+  border-bottom: 1px solid #dbdbdb;
+  padding: 10px 0;
+  overflow: hidden;
+}
+
+.stories-container {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding: 10px 15px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stories-container::-webkit-scrollbar {
+  display: none;
+}
+
+.story-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 75px;
+  text-align: center;
+}
+
+.story-ring {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.story-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  object-fit: cover;
+}
+
+.story-username {
+  font-size: 12px;
+  color: #262626;
+  margin-top: 6px;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

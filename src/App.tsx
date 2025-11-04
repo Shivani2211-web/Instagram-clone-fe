@@ -1,16 +1,20 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import './styles.css';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MessageProvider } from './contexts/MessageContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import Navbar from './components/layout/Navbar';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import Profile from './pages/Profile';
-import Home from './pages/Home';  // Add this import
-import PostDetails from './pages/PostDetails';
-import './App.css';
+import Home from './pages/Home';
 import Direct from './pages/Direct';
-import Settings from './pages/Settings';  // Update this import (was from @mui/icons-material)
+import Settings from './pages/Settings';
 import CreatePost from './pages/CreatePost';
+import NotificationsPage from './pages/NotificationPage';
+import MessagesPage from './pages/MessagesPage';
+import ReelsPage from './pages/ReelsPage';
 
 // ✅ Private Route (for logged-in users)
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
@@ -26,13 +30,17 @@ const PublicRoute = ({ children }: { children: React.ReactElement }) => {
 
 // ✅ Main app content structure
 function AppContent() {
+  const location = useLocation();
+  const hideNavbar = location.pathname === '/login' || location.pathname === '/register';
+  
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar fixed at top */}
-      <Navbar />
+    <div className="min-h-screen bg-white">
+      <NotificationProvider>
+      {/* Navbar fixed at top - hidden on login/register pages */}
+      {!hideNavbar && <Navbar />}
 
-      {/* Main content with top padding (to avoid overlap with navbar) */}
-      <main className="pt-16">
+      {/* Main content with conditional padding */}
+      <main className={!hideNavbar ? "pt-16 overflow-hidden" : "overflow-hidden"}>
         <Routes>
           {/* Public routes */}
           <Route
@@ -62,6 +70,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/reels"
+            element={
+              <PrivateRoute>
+                <ReelsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/direct"
             element={
               <PrivateRoute>
@@ -69,6 +85,15 @@ function AppContent() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/messages"
+            element={
+              <PrivateRoute>
+                <MessagesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/messages/:userId" element={<MessagesPage />} />
           <Route
             path="/create"
             element={
@@ -86,18 +111,18 @@ function AppContent() {
             }
           />
           <Route
-            path="/:username"
+            path="/notifications"
             element={
               <PrivateRoute>
-                <Profile />
+                <NotificationsPage />
               </PrivateRoute>
             }
           />
           <Route
-            path="/p/:postId"
+            path="/profile/:username?"
             element={
               <PrivateRoute>
-                <PostDetails />
+                <Profile />
               </PrivateRoute>
             }
           />
@@ -106,16 +131,19 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      </NotificationProvider>
     </div>
   );
 }
 
-// ✅ App wrapper with Router + AuthProvider
+// App wrapper with Router + AuthProvider
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <MessageProvider>
+          <AppContent />
+        </MessageProvider>
       </AuthProvider>
     </Router>
   );

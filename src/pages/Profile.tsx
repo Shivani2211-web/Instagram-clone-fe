@@ -1,234 +1,263 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../api/api';
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Box,
+  Grid,
+  Avatar,
+  Typography,
+  Button,
+  CircularProgress,
+  Container,
+  Paper,
+} from "@mui/material";
+import { useAuth } from "../contexts/AuthContext";
+import { usersAPI } from "../api/endpoints";
 
-interface User {
+interface UserProfile {
   id: string;
+  profilePicture: string;
   username: string;
-  fullName: string;
-  avatar?: string;
   bio?: string;
-  website?: string;
   followers: number;
   following: number;
-  posts: number;
-  isFollowing?: boolean;
+  posts: UserPost[];
 }
 
-interface Post {
+interface UserPost {
   id: string;
   imageUrl: string;
-  likes: number;
-  comments: number;
+  caption?: string;
 }
 
 const Profile = () => {
-  const { username } = useParams<{ username: string }>();
+  const { username: urlUsername } = useParams<{ username?: string }>();
   const { currentUser } = useAuth();
-  const [profile, setProfile] = useState<User | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCurrentUser, setIsCurrentUser] = useState(false);
-  const [activeTab, setActiveTab] = useState('posts');
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProfile = async () => {
       try {
-        const [profileRes, postsRes] = await Promise.all([
-          api.get(`/users/${username}`),
-          api.get(`/users/${username}/posts`)
-        ]);
-        
-        setProfile(profileRes.data);
-        setPosts(postsRes.data);
-        setIsCurrentUser(profileRes.data.id === currentUser?.id);
-      } catch (error) {
-        console.error('Failed to fetch profile', error);
+        setLoading(true);
+        setError(null);
+
+        let response;
+        if (
+          !urlUsername ||
+          urlUsername === "undefined" ||
+          (currentUser && urlUsername === currentUser.username)
+        ) {
+          if (!currentUser) throw new Error("Please log in to view your profile");
+          response = await usersAPI.getMe();
+        } else {
+          response = await usersAPI.getUserProfile(urlUsername);
+        }
+
+        const data = response?.data?.data || response?.data;
+        if (!data) throw new Error("Invalid user data received");
+
+        setUser({
+          id: data._id || data.id,
+          profilePicture: data.profilePicture || "/assets/default-avatar.png",
+          username: data.username,
+          bio: data.bio || "Hey there! I'm using Instagram Clone 🌸",
+          followers:
+            typeof data.followers === "number" ? data.followers : data.followers?.length || 0,
+          following:
+            typeof data.following === "number" ? data.following : data.following?.length || 0,
+          posts: (data.posts || []).map((post: any) => ({
+            id: post._id || post.id,
+            imageUrl: post.image || post.imageUrl || "/assets/default-post.png",
+            caption: post.caption || "",
+          })),
+        });
+      } catch (err: any) {
+        console.error("Failed to load profile:", err);
+        if (isMounted) {
+          setError(err.message || "Failed to load profile");
+          setUser(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchProfile();
-  }, [username, currentUser]);
+    return () => {
+      isMounted = false;
+    };
+  }, [urlUsername, currentUser]);
 
-  const handleFollow = async () => {
-    if (!profile) return;
-    
-    try {
-      if (profile.isFollowing) {
-        await api.delete(`/users/${profile.id}/unfollow`);
-        setProfile(prev => prev ? {
-          ...prev,
-          isFollowing: false,
-          followers: prev.followers - 1
-        } : null);
-      } else {
-        await api.post(`/users/${profile.id}/follow`);
-        setProfile(prev => prev ? {
-          ...prev,
-          isFollowing: true,
-          followers: prev.followers + 1
-        } : null);
-      }
-    } catch (error) {
-      console.error('Failed to update follow status', error);
-    }
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress sx={{ color: "#e1306c" }} />
+      </Box>
     );
   }
 
-  if (!profile) {
+  if (error) {
     return (
-      <div className="text-center py-10">
-        <h2 className="text-xl font-semibold text-gray-700">User not found</h2>
-        <p className="text-gray-500 mt-2">The user you're looking for doesn't exist.</p>
-      </div>
+      <Container maxWidth="sm" sx={{ textAlign: "center", py: 10 }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          Error Loading Profile
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {error}
+        </Typography>
+        <Button
+          variant="contained"
+          sx={{
+            mt: 2,
+            background: "linear-gradient(45deg, #fd1d1d, #e1306c)",
+            "&:hover": { opacity: 0.9 },
+          }}
+          onClick={() => window.location.reload()}
+        >
+          Try Again
+        </Button>
+      </Container>
     );
   }
+
+  if (!user) {
+    return (
+      <Container maxWidth="sm" sx={{ textAlign: "center", py: 10 }}>
+        <Typography variant="h6" color="text.primary" gutterBottom>
+          {!urlUsername ? "Please log in to view your profile" : "User not found"}
+        </Typography>
+        {!urlUsername && (
+          <Button
+            variant="contained"
+            sx={{
+              mt: 2,
+              background: "linear-gradient(45deg, #5851db, #833ab4, #e1306c)",
+            }}
+            onClick={() => navigate("/login")}
+          >
+            Go to Login
+          </Button>
+        )}
+      </Container>
+    );
+  }
+
+  const isCurrentUser = currentUser?.username === user.username;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-center md:items-start px-4 py-8">
-        {/* Profile Picture */}
-        <div className="w-24 h-24 md:w-40 md:h-40 rounded-full overflow-hidden border-2 border-gray-200 flex-shrink-0">
-          <img 
-            src={profile.avatar || '/default-avatar.png'} 
-            alt={profile.username}
-            className="w-full h-full object-cover"
+    <Container maxWidth="md" sx={{ py: 6 }}>
+      {/* Profile Header */}
+      <Grid container spacing={4} alignItems="center">
+        <Grid container spacing={4} alignItems="center">
+          <Avatar
+            src={user.profilePicture}
+            alt={user.username}
+            sx={{
+              width: 130,
+              height: 130,
+              border: "3px solid #e1306c",
+              boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+            }}
           />
-        </div>
+        </Grid>
 
-        {/* Profile Info */}
-        <div className="mt-6 md:mt-0 md:ml-16 flex-1">
-          <div className="flex flex-col md:flex-row md:items-center">
-            <h1 className="text-2xl font-light">{profile.username}</h1>
-            
-            {isCurrentUser ? (
-              <Link
-                to="/accounts/edit"
-                className="mt-2 md:mt-0 md:ml-4 px-4 py-1 text-sm font-medium bg-gray-100 hover:bg-gray-200 rounded-md"
+     <Grid container spacing={4} alignItems="center">
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+            <Typography variant="h5" fontWeight="600" sx={{color:"white"}}>
+              {user.username}
+            </Typography>
+            {isCurrentUser && (
+              <Button
+                variant="outlined"
+                sx={{
+                  borderColor: "white",
+                  color: "white",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": { backgroundColor: "#fafafa" },
+                }}
               >
                 Edit Profile
-              </Link>
-            ) : (
-              <button
-                onClick={handleFollow}
-                className={`mt-2 md:mt-0 md:ml-4 px-4 py-1 text-sm font-medium rounded-md ${
-                  profile.isFollowing 
-                    ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' 
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
-              >
-                {profile.isFollowing ? 'Following' : 'Follow'}
-              </button>
+              </Button>
             )}
-          </div>
+          </Box>
 
           {/* Stats */}
-          <div className="flex space-x-8 my-4">
-            <div>
-              <span className="font-semibold">{profile.posts}</span> posts
-            </div>
-            <div>
-              <span className="font-semibold">{profile.followers}</span> followers
-            </div>
-            <div>
-              <span className="font-semibold">{profile.following}</span> following
-            </div>
-          </div>
+          <Box display="flex" gap={4} mt={2} sx={{color:"white"}}>
+            <Typography variant="body1">
+              <b>{user.posts?.length || 0}</b> posts
+            </Typography>
+            <Typography variant="body1">
+              <b>{user.followers}</b> followers
+            </Typography>
+            <Typography variant="body1">
+              <b>{user.following}</b> following
+            </Typography>
+          </Box>
 
           {/* Bio */}
-          <div>
-            <h2 className="font-semibold">{profile.fullName}</h2>
-            {profile.bio && <p className="mt-1">{profile.bio}</p>}
-            {profile.website && (
-              <a 
-                href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
-              >
-                {profile.website}
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
+          <Typography
+            variant="body2"
+            color="white"
+            sx={{ mt: 2, maxWidth: 400 }}
+          >
+            {user.bio}
+          </Typography>
+        </Grid>
+      </Grid>
 
-      {/* Tabs */}
-      <div className="border-t border-gray-200">
-        <div className="flex justify-center">
-          <button
-            onClick={() => setActiveTab('posts')}
-            className={`px-4 py-3 text-sm font-medium ${
-              activeTab === 'posts' 
-                ? 'text-blue-500 border-t-2 border-blue-500' 
-                : 'text-gray-600'
-            }`}
-          >
-            <i className="fas fa-th mr-1"></i> POSTS
-          </button>
-          <button
-            onClick={() => setActiveTab('saved')}
-            className={`px-4 py-3 text-sm font-medium ${
-              activeTab === 'saved' 
-                ? 'text-blue-500 border-t-2 border-blue-500' 
-                : 'text-gray-600'
-            }`}
-          >
-            <i className="far fa-bookmark mr-1"></i> SAVED
-          </button>
-        </div>
-      </div>
+      {/* Divider */}
+      <Box
+        sx={{
+          mt: 5,
+          mb: 4,
+          height: "1px",
+          backgroundColor: "white",
+        }}
+      />
 
       {/* Posts Grid */}
-      <div className="grid grid-cols-3 gap-1">
-        {posts.length > 0 ? (
-          posts.map(post => (
-            <Link 
-              key={post.id} 
-              to={`/p/${post.id}`}
-              className="aspect-square bg-gray-100 relative group"
-            >
-              <img 
-                src={post.imageUrl} 
-                alt="" 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center text-white font-semibold mr-6">
-                  <i className="fas fa-heart mr-1"></i>
-                  <span>{post.likes}</span>
-                </div>
-                <div className="flex items-center text-white font-semibold">
-                  <i className="fas fa-comment mr-1"></i>
-                  <span>{post.comments}</span>
-                </div>
-              </div>
-            </Link>
-          ))
-        ) : (
-          <div className="col-span-3 py-16 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full border-2 border-black flex items-center justify-center mb-4">
-              <i className="fas fa-camera text-2xl"></i>
-            </div>
-            <h2 className="text-3xl font-light mb-2">No Posts Yet</h2>
-            <p className="text-gray-500 max-w-md mx-auto">
-              {isCurrentUser ? 'Share your first photo to get started!' : 'When they post, you\'ll see their photos here.'}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+      {user.posts?.length > 0 ? (
+        <Grid container spacing={1}>
+          {user.posts.map((post) => (
+            <Grid container spacing={4} alignItems="center" key={post.id}>
+              <Paper
+                elevation={0}
+                sx={{
+                  position: "relative",
+                  aspectRatio: "1 / 1",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                }}
+              >
+                <Box
+                  component="img"
+                  src={post.imageUrl}
+                  alt={post.caption}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transition: "opacity 0.2s ease-in-out",
+                    "&:hover": { opacity: 0.8 },
+                  }}
+                />
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Box textAlign="center" py={10}>
+          <Typography variant="body1" color="white">
+            No posts yet
+          </Typography>
+        </Box>
+      )}
+    </Container>
   );
 };
 

@@ -21,7 +21,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 
 const RegisterForm = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
+    name: '',
     username: '',
     email: '',
     password: '',
@@ -33,12 +33,12 @@ const RegisterForm = () => {
   const navigate = useNavigate();
 
   // Refs for keyboard navigation
-  const fullNameRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const fieldsOrder = [fullNameRef, usernameRef, emailRef, passwordRef];
+  const fieldsOrder = [nameRef, usernameRef, emailRef, passwordRef];
 
   // Accept HTMLElement because MUI TextField's onKeyDown is on a wrapper div
   const handleKeyNav = (e: React.KeyboardEvent<HTMLElement>, index: number) => {
@@ -73,8 +73,8 @@ const RegisterForm = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      <Paper elevation={3} sx={{ p: { xs: 3, sm: 4 }, width: '100%' }}>
+    <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center',borderRadius:5 }}>
+      <Paper elevation={3} sx={{ p: { xs: 3, sm: 4 }, width: '100%',borderRadius:5}}>
         <Typography variant="h5" fontWeight={700} textAlign="center" gutterBottom>
           Create your account
         </Typography>
@@ -85,14 +85,14 @@ const RegisterForm = () => {
           </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit} noValidate>
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ borderRadius:2 }}>
           <Stack spacing={2.25}>
             <TextField
-              inputRef={fullNameRef}
+              inputRef={nameRef}
               label="Full Name"
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               onKeyDown={(e) => handleKeyNav(e, 0)}
               required
@@ -168,6 +168,9 @@ const RegisterForm = () => {
               >
               Sign up
             </LoadingButton>
+          </Stack>
+          <Stack>
+            
           </Stack>
         </Box>
 
