@@ -8,7 +8,6 @@ import {
   Paper, 
   Badge, 
   CircularProgress,
-  Tooltip,
   styled,
   Dialog,
   DialogContent,
@@ -36,6 +35,15 @@ interface MessageBubbleProps {
   isCurrentUser: boolean;
 }
 
+const ChatContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  height: 'calc(100vh - 64px)',
+  backgroundColor: theme.palette.background.default,
+  borderLeft: `1px solid ${theme.palette.divider}`,
+  position: 'relative',
+}));
+
 const MessageBubble = styled(Paper, {
   shouldForwardProp: (prop) => prop !== 'isCurrentUser',
 })<MessageBubbleProps>(({ theme, isCurrentUser }) => ({
@@ -43,7 +51,7 @@ const MessageBubble = styled(Paper, {
   padding: theme.spacing(1.5, 2),
   backgroundColor: isCurrentUser 
     ? theme.palette.primary.main 
-    : theme.palette.grey[200],
+    : theme.palette.background.paper,
   color: isCurrentUser ? theme.palette.primary.contrastText : theme.palette.text.primary,
   borderRadius: '18px',
   borderTopLeftRadius: isCurrentUser ? '18px' : '4px',
@@ -51,14 +59,16 @@ const MessageBubble = styled(Paper, {
   margin: theme.spacing(0.5, 0),
   wordBreak: 'break-word',
   position: 'relative',
+  boxShadow: theme.shadows[1],
   '&:hover': {
-    boxShadow: theme.shadows[1]
+    boxShadow: theme.shadows[2]
   },
   alignSelf: isCurrentUser ? 'flex-end' : 'flex-start',
+  transition: 'all 0.2s ease-in-out',
 }));
 
 const TimeStamp = styled(Typography)(({ theme }) => ({
-  fontSize: '0.7rem',
+  fontSize: '0.65rem',
   color: theme.palette.text.secondary,
   textAlign: 'right',
   marginTop: theme.spacing(0.5),
@@ -66,6 +76,96 @@ const TimeStamp = styled(Typography)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'flex-end',
   gap: '4px',
+  opacity: 0.8,
+  fontFeatureSettings: '"tnum"',
+}));
+
+const ChatHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(1.5, 2),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  display: 'flex',
+  alignItems: 'center',
+  backgroundColor: theme.palette.background.paper,
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+}));
+
+const MessagesContainer = styled(Box)({
+  flex: 1,
+  overflowY: 'auto',
+  padding: '16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+  '&::-webkit-scrollbar': {
+    width: '6px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'transparent',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: '3px',
+  },
+});
+
+const MessageInputContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(1.5, 2),
+  borderTop: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.paper,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1),
+}));
+
+const MessageInput = styled(TextField)({
+  flex: 1,
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '24px',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    '&:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: 'transparent',
+    },
+    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+      borderWidth: '1px',
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    padding: '10px 16px',
+  },
+});
+
+const SendButton = styled(IconButton)(({ theme }) => ({
+  color: theme.palette.primary.main,
+  '&:hover': {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+  },
+}));
+
+const TypingIndicator = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: '4px 12px',
+  backgroundColor: theme.palette.action.hover,
+  borderRadius: '12px',
+  alignSelf: 'flex-start',
+  marginLeft: '8px',
+  marginBottom: '4px',
+  '& .dot': {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: theme.palette.text.secondary,
+    animation: 'bounce 1.4s infinite ease-in-out both',
+    '&:nth-child(1)': { animationDelay: '-0.32s' },
+    '&:nth-child(2)': { animationDelay: '-0.16s' },
+  },
+  '@keyframes bounce': {
+    '0%, 80%, 100%': { transform: 'scale(0.6)' },
+    '40%': { transform: 'scale(1.0)' },
+  },
 }));
 
 interface ChatWindowProps {
@@ -265,32 +365,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   }
 
   return (
-    <Box 
-      display="flex" 
-      flexDirection="column" 
-      height="100%" 
-      width="100%"
-      bgcolor="#fff"
-      sx={{ flex: 1 }}
-    >
+    <ChatContainer sx={{ flex: 1 }}>
       {/* Header */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 2, 
-          display: 'flex', 
-          alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          bgcolor: '#fff',
-          flexShrink: 0,
-          cursor: 'pointer',
-          '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.02)'
-          }
-        }}
-        onClick={handleProfileClick}
-      >
+      <ChatHeader sx={{ flexShrink: 0, cursor: 'pointer', '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.02)' } }} onClick={handleProfileClick}>
         <Badge
           overlap="circular"
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -308,11 +385,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           <Typography variant="subtitle1" fontWeight="bold">
             {recipient.name}
           </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {recipient.isTyping ? 'typing...' : 'online'}
-          </Typography>
+          {recipient?.isTyping && (
+            <TypingIndicator>
+              <Box className="dot" />
+              <Box className="dot" />
+              <Box className="dot" />
+            </TypingIndicator>
+          )}
         </Box>
-      </Paper>
+      </ChatHeader>
 
       {/* Profile Dialog */}
       <Dialog 
@@ -437,19 +518,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       </Dialog>
 
       {/* Messages */}
-      <Box 
-        sx={{ 
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          bgcolor: '#fafafa',
-          backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <MessagesContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', bgcolor: '#fafafa', backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px)', backgroundSize: '20px 20px', p: 2, display: 'flex', flexDirection: 'column' }}>
         {loading && messages.length === 0 ? (
           <Box display="flex" justifyContent="center" alignItems="center" height="100%">
             <CircularProgress />
@@ -511,64 +580,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </>
         )}
       
-      </Box>
+      </MessagesContainer>
 
       {/* Message Input */}
-      <Box 
-        p={2} 
-        borderTop="1px solid" 
-        borderColor="divider" 
-        bgcolor="#fff"
-        sx={{ flexShrink: 0 }}
-      >
-        <form onSubmit={handleSendMessage}>
-          <Box display="flex" alignItems="center">
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Type a message..."
-              size="small"
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-                handleTyping();
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage(e);
-                }
-              }}
-              disabled={loading}
-              multiline
-              maxRows={4}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '24px',
-                  backgroundColor: 'background.paper',
-                  pr: 1,
-                },
-                '& .MuiOutlinedInput-input': {
-                  py: 1.5,
-                },
-              }}
-            />
-            <Tooltip title="Send">
-              <span>
-                <IconButton 
-                  type="submit" 
-                  color="primary" 
-                  disabled={!message.trim() || loading}
-                  sx={{ ml: 1 }}
-                >
-                  <SendIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
-        </form>
-      </Box>
-    </Box>
+      <MessageInputContainer>
+        <Box component="form" onSubmit={handleSendMessage} sx={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+          <MessageInput
+            fullWidth
+            variant="outlined"
+            placeholder="Message..."
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              handleTyping();
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
+              }
+            }}
+            multiline
+            maxRows={4}
+          />
+          <SendButton
+            type="submit"
+            disabled={!message.trim()}
+            sx={{ ml: 1 }}
+          >
+            <SendIcon />
+          </SendButton>
+        </Box>
+      </MessageInputContainer>
+    </ChatContainer>
   );
 };
 

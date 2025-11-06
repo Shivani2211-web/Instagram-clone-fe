@@ -1,137 +1,168 @@
 import { useRef, useState, useEffect } from 'react';
-import { Box, IconButton, Typography, Avatar } from '@mui/material';
+import { Box, IconButton, Typography, Avatar, CircularProgress } from '@mui/material';
 import { PlayArrow, Favorite, ChatBubbleOutline, SendOutlined, MoreVert, VolumeOff, VolumeUp } from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
+import { ReelsApi } from '../../api/endpoints';
 
 interface Reel {
-  id: string;
+  _id: string;
   videoUrl: string;
   user: {
+    _id: string;
     username: string;
-    avatar: string;
+    avatar?: string;
   };
   caption: string;
-  likes: number;
-  comments: number;
-  isLiked: boolean;
+  likes: string[]; // Array of user IDs who liked the reel
+  comments: any[]; // You might want to create a proper Comment interface
+  isLiked?: boolean; // This will be computed based on current user's ID
+  createdAt: string;
+  likesCount?: number; // Add likesCount to match the API response
 }
 
 const Reels = () => {
-  const theme = useTheme();
-  const { currentUser } = useAuth();
   const [reels, setReels] = useState<Reel[]>([]);
-  const [currentReelIndex, setCurrentReelIndex] = useState(0);
+  const [currentReelIndex] = useState(0); // Removed setCurrentReelIndex as it's not used
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useAuth();
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Mock data - replace with actual API call
   useEffect(() => {
-    // Simulate API call
     const fetchReels = async () => {
       try {
         setLoading(true);
-        // Replace with actual API call
-        // const response = await api.get('/reels');
-        // setReels(response.data);
-        
-        // Mock data
-        setTimeout(() => {
-          setReels([
-            {
-              id: '1',
-              videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-woman-dancing-under-neon-lights-1230-large.mp4',
-              user: {
-                username: 'dance_queen',
-                avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-              },
-              caption: 'Dancing my heart out! 💃 #dance #fun',
-              likes: 1243,
-              comments: 89,
-              isLiked: false,
-            },
-            {
-              id: '2',
-              videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-man-playing-with-a-cat-1230-large.mp4',
-              user: {
-                username: 'cat_lover',
-                avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-              },
-              caption: 'Just me and my cat being silly 😺 #catsoftiktok',
-              likes: 856,
-              comments: 42,
-              isLiked: true,
-            },
-          ]);
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error('Error fetching reels:', error);
+        const response = await ReelsApi.getReels();
+        const reelsWithLikes = response.data.map((reel: Reel) => ({
+          ...reel,
+          isLiked: reel.likes.includes(currentUser?.id || '')
+        }));
+        setReels(reelsWithLikes);
+      } catch (err) {
+        console.error('Error fetching reels:', err);
+        setError('Failed to load reels. Please try again later.');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchReels();
-  }, []);
+  }, [currentUser?.id]);
 
-  // Handle scroll to detect which reel is in view
+  const handleLike = async (reelId: string) => {
+    try {
+      const reelIndex = reels.findIndex(r => r._id === reelId);
+      if (reelIndex === -1) return;
+
+      const reel = reels[reelIndex];
+      const isLiked = reel.isLiked;
+
+      // Optimistic update
+      const updatedReels = [...reels];
+      updatedReels[reelIndex] = {
+        ...reel,
+        likes: isLiked 
+          ? reel.likes.filter(id => id !== currentUser?.id)
+          : [...reel.likes, currentUser?.id || ''],
+        isLiked: !isLiked,
+        likesCount: isLiked 
+          ? (reel.likesCount || reel.likes.length) - 1 
+          : (reel.likesCount || reel.likes.length) + 1
+      };
+      setReels(updatedReels);
+
+      // API call
+      if (isLiked) {
+        await ReelsApi.unlikeReel(reelId);
+      } else {
+        await ReelsApi.likeReel(reelId);
+      }
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      // Revert on error
+      const reelIndex = reels.findIndex(r => r._id === reelId);
+      if (reelIndex !== -1) {
+        const updatedReels = [...reels];
+        updatedReels[reelIndex] = {
+          ...reels[reelIndex],
+          isLiked: !reels[reelIndex].isLiked,
+          likesCount: reels[reelIndex].likesCount || reels[reelIndex].likes.length
+        };
+        setReels(updatedReels);
+      }
+    }
+  };
+
+  // Commented out unused function
+  // const handleAddComment = async (reelId: string, text: string) => {
+  //   try {
+  //     await ReelsApi.addComment(reelId, { text });
+  //     // Refresh comments or update state
+  //     const response = await ReelsApi.getReel(reelId);
+  //     const updatedReels = reels.map(reel => 
+  //       reel._id === reelId ? response.data : reel
+  //     );
+  //     setReels(updatedReels);
+  //   } catch (err) {
+  //     console.error('Error adding comment:', err);
+  //   }
+  // };
+
   useEffect(() => {
     const handleScroll = () => {
-      if (!containerRef.current) return;
-      
-      const container = containerRef.current;
-      const scrollPosition = container.scrollTop;
-      const windowHeight = window.innerHeight;
-      
-      // Find which reel is in the center of the viewport
-      const newIndex = Math.round(scrollPosition / windowHeight);
-      
-      if (newIndex !== currentReelIndex && newIndex >= 0 && newIndex < reels.length) {
-        setCurrentReelIndex(newIndex);
-      }
+      // Handle scroll event
     };
 
     const container = containerRef.current;
-    container?.addEventListener('scroll', handleScroll);
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+    }
     
     return () => {
-      container?.removeEventListener('scroll', handleScroll);
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
     };
-  }, [currentReelIndex, reels.length]);
+  }, []);
 
-  // Play/pause video when currentReelIndex changes
-  useEffect(() => {
-    if (videoRefs.current[currentReelIndex]) {
-      const playPromise = videoRefs.current[currentReelIndex]?.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error('Error playing video:', error);
-        });
-      }
-      
-      setIsPlaying(true);
-    }
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-    // Pause all other videos
-    videoRefs.current.forEach((video, index) => {
-      if (video && index !== currentReelIndex) {
-        video.pause();
-      }
-    });
-  }, [currentReelIndex]);
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }  const togglePlayPause = async () => {
+    const video = videoRefs.current[currentReelIndex];
+    if (!video) return;
 
-  const togglePlayPause = () => {
-    if (videoRefs.current[currentReelIndex]) {
+    try {
       if (isPlaying) {
-        videoRefs.current[currentReelIndex]?.pause();
+        video.pause();
+        setIsPlaying(false);
       } else {
-        videoRefs.current[currentReelIndex]?.play();
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          await playPromise.catch(error => {
+            // Handle the error if the video fails to play
+            console.error('Error playing video:', error);
+            setIsPlaying(false);
+          });
+          setIsPlaying(true);
+        }
       }
-      setIsPlaying(!isPlaying);
+    } catch (error) {
+      console.error('Error toggling play/pause:', error);
     }
   };
 
@@ -144,15 +175,15 @@ const Reels = () => {
     }
   };
 
-  const handleLike = (reelId: string) => {
-    setReels(prevReels =>
-      prevReels.map(reel =>
-        reel.id === reelId
-          ? { ...reel, isLiked: !reel.isLiked, likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1 }
-          : reel
-      )
-    );
-  };
+  // const handleLike = (reelId: string) => {
+  //   setReels(prevReels =>
+  //     prevReels.map(reel =>
+  //       reel.id === reelId
+  //         ? { ...reel, isLiked: !reel.isLiked, likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1 }
+  //         : reel
+  //     )
+  //   );
+  // };
 
   if (loading) {
     return (
@@ -184,7 +215,7 @@ const Reels = () => {
     >
       {reels.map((reel, index) => (
         <Box
-          key={reel.id}
+          key={reel._id}
           sx={{
             position: 'relative',
             width: '100%',
@@ -197,7 +228,11 @@ const Reels = () => {
         >
           {/* Video */}
           <video
-            ref={el => (videoRefs.current[index] = el)}
+            ref={el => {
+              if (el) {
+                videoRefs.current[index] = el;
+              }
+            }}
             src={reel.videoUrl}
             loop
             muted={isMuted}
@@ -271,14 +306,14 @@ const Reels = () => {
                 <IconButton 
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleLike(reel.id);
+                    handleLike(reel._id);
                   }}
                   sx={{ color: reel.isLiked ? 'red' : 'white' }}
                 >
                   <Favorite fontSize="large" />
                 </IconButton>
                 <Typography variant="caption" display="block">
-                  {reel.likes.toLocaleString()}
+                  {(reel.likesCount || reel.likes.length).toLocaleString()}
                 </Typography>
               </Box>
 
@@ -287,7 +322,7 @@ const Reels = () => {
                   <ChatBubbleOutline fontSize="large" />
                 </IconButton>
                 <Typography variant="caption" display="block">
-                  {reel.comments.toLocaleString()}
+                  {reel.comments?.length?.toLocaleString() || '0'}
                 </Typography>
               </Box>
 

@@ -6,27 +6,29 @@ import Post from '../components/posts/Post';
 import Stories from '../components/stories/Stories';
 import '../styles.css';
 
-interface User {
-  _id: string;
-  username: string;
-  name?: string;
-  avatar?: {
-    url?: string;
-  };
-}
+// User type is now defined inline in the interfaces below
 
 interface Comment {
   _id: string;
-  user: User;
+  user: {
+    _id: string;
+    username: string;
+    name?: string;
+    avatar?: string;
+  };
   text: string;
   createdAt: string;
 }
 
 interface PostType {
   _id: string;
-  user: User;
-  image?: string;
-  media?: Array<{ url: string }>;
+  user: {
+    _id: string;
+    username: string;
+    name?: string;
+    avatar?: string;
+  };
+  image: string;
   caption: string;
   likes: Array<{ user: string }>;
   comments: Comment[];
@@ -40,62 +42,61 @@ const Home = () => {
   const [posts, setPosts] = useState<PostType[]>([]);
   const { currentUser } = useAuth();
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await postsAPI.getAllPosts();
-        console.log('Posts API Response:', response);
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await postsAPI.getAllPosts();
+      console.log('Posts API Response:', response);
 
-        if (response.status !== 200) {
-          throw new Error(`Failed to fetch posts: ${response.statusText}`);
-        }
-
-        if (!response.data) {
-          throw new Error('No data received from the server');
-        }
-
-        // Handle different response formats
-        const postsData = Array.isArray(response.data) 
-          ? response.data 
-          : (response.data.data || response.data.posts || []);
-
-        if (!Array.isArray(postsData)) {
-          throw new Error('Invalid posts data format');
-        }
-
-        const formattedPosts = postsData.map((post: any) => ({
-          _id: post._id,
-          user: {
-            _id: post.user?._id || post.userId || 'unknown',
-            username: post.user?.username || 'unknown',
-            name: post.user?.name,
-            avatar: post.user?.avatar
-          },
-          image: post.image || post.media?.[0]?.url || '',
-          caption: post.caption || '',
-          likes: Array.isArray(post.likes) ? post.likes : [],
-          comments: Array.isArray(post.comments) ? post.comments : [],
-          createdAt: post.createdAt || new Date().toISOString()
-        }));
-
-        setPosts(formattedPosts);
-      } catch (err: any) {
-        console.error('Error fetching posts:', err);
-        setError(err.message || 'Failed to load posts. Please try again later.');
-      } finally {
-        setLoading(false);
+      if (response.status !== 200) {
+        throw new Error(`Failed to fetch posts: ${response.statusText}`);
       }
-    };
 
+      if (!response.data) {
+        throw new Error('No data received from the server');
+      }
+
+      // Handle different response formats
+      const postsData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data.data || response.data.posts || []);
+
+      if (!Array.isArray(postsData)) {
+        throw new Error('Invalid posts data format');
+      }
+
+      const formattedPosts = postsData.map((post: any) => ({
+        _id: post._id,
+        user: {
+          _id: post.user?._id || post.userId || 'unknown',
+          username: post.user?.username || 'unknown',
+          name: post.user?.name,
+          avatar: post.user?.avatar
+        },
+        image: post.image || post.media?.[0]?.url || '',
+        caption: post.caption || '',
+        likes: Array.isArray(post.likes) ? post.likes : [],
+        comments: Array.isArray(post.comments) ? post.comments : [],
+        createdAt: post.createdAt || new Date().toISOString()
+      }));
+
+      setPosts(formattedPosts);
+    } catch (err: any) {
+      console.error('Error fetching posts:', err);
+      setError(err.message || 'Failed to load posts. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPosts();
   }, [currentUser?.id]);
 
-  const handlePostUpdate = (postId: string) => {
-    // If you need to update the post data, you can fetch it again here
-    // For now, we'll just trigger a refetch of all posts
+  const handlePostUpdate = () => {
+    // Refresh the posts list
     fetchPosts();
   };
 

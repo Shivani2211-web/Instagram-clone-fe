@@ -2,6 +2,15 @@
 import type { Story } from '../types/story';
 import api from './api';
 
+
+interface ReelCommentData {
+  text: string;
+}
+
+type ReelId = string;
+type UserId = string;
+
+
 // Add request interceptor to include auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -148,59 +157,99 @@ export const uploadAPI = {
 
 // Stories endpoints
 export const storiesAPI = {
-  // Get stories for a specific user
-  getUserStories: async (userId: string) => {
-    try {
-      console.log(`Fetching stories for user ${userId}...`);
-      const response = await api.get(`/stories/feed`);
-      console.log('User stories response:', response);
-      return response;
-    } catch (error) {
-      console.error(`Error fetching stories for user ${userId}:`, error);
-      throw error;
-    }
-  },
-  
-  // Alias for getUserStories to maintain backward compatibility
+  /**
+   * Get stories from users you follow, including your own
+   * @returns {Promise<Story[]>} Array of stories
+   */
   getFollowingStories: async (): Promise<Story[]> => {
     try {
       const response = await api.get('/stories/feed');
-      return response.data;
+      console.log('Following Stories Response:', response.data);
+      return response.data.data || []; // Ensure we return an array
     } catch (error) {
-      console.error('Error fetching stories:', error);
+      console.error('Error fetching following stories:', error);
       throw error;
     }
   },
-  
-  // Create a new story
-  createStory: async (storyData: { image: string; expiresAt?: Date }) => {
+
+  /**
+   * Get all active stories for the logged-in user
+   * @returns {Promise<Story[]>} Array of user's active stories
+   */
+  getMyStories: async (): Promise<Story[]> => {
     try {
-      console.log('Creating story with data:', storyData);
-      return await api.post('/stories', storyData);
+      const response = await api.get('/stories/me');
+      console.log('My Stories Response:', response.data);
+      return response.data.data || []; // Ensure we return an array
+    } catch (error) {
+      console.error('Error fetching my stories:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * View a story (marks it as viewed by the current user)
+   * @param {string} storyId - ID of the story to view
+   * @returns {Promise<any>} Response data
+   */
+  viewStory: async (storyId: string): Promise<any> => {
+    try {
+      const response = await api.put(`/stories/${storyId}/view`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error viewing story ${storyId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new story
+   * @param {FormData} formData - Form data containing the story media and optional caption
+   * @returns {Promise<Story>} The created story
+   */
+  createStory: async (formData: FormData): Promise<Story> => {
+    try {
+      const response = await api.post('/stories', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
     } catch (error) {
       console.error('Error creating story:', error);
       throw error;
     }
   },
-  
-  // Delete a story
-  deleteStory: async (storyId: string) => {
+
+  /**
+   * Delete a story
+   * @param {string} storyId - ID of the story to delete
+   * @returns {Promise<any>} Response data
+   */
+  deleteStory: async (storyId: string): Promise<any> => {
     try {
-      console.log(`Deleting story ${storyId}...`);
-      return await api.delete(`/stories/${storyId}`);
+      const response = await api.delete(`/stories/${storyId}`);
+      return response.data;
     } catch (error) {
       console.error(`Error deleting story ${storyId}:`, error);
       throw error;
     }
   },
   
-  // View a story (mark as viewed)
-  viewStory: async (storyId: string) => {
+  // Alias for backward compatibility
+  getUserStories: () => storiesAPI.getFollowingStories(),
+  
+  // Upload story image (for backward compatibility)
+  uploadStoryImage: async (formData: FormData) => {
     try {
-      console.log(`Viewing story ${storyId}...`);
-      return await api.put(`/stories/${storyId}/view`);
+      const response = await api.post('/upload/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
     } catch (error) {
-      console.error(`Error viewing story ${storyId}:`, error);
+      console.error('Error uploading story image:', error);
       throw error;
     }
   }
@@ -288,3 +337,41 @@ export default {
   explore: exploreAPI,
   bookmarks: bookmarksAPI,
 };
+export const ReelsApi = {
+  // Get all reels
+  getReels: () => api.get('/reels'),
+  
+  // Get trending reels
+  getTrendingReels: () => api.get('/reels/trending'),
+  
+  // Get reels by user
+  getReelsByUser: (userId: UserId) => api.get(`/reels/user/${userId}`),
+  
+  // Get single reel by ID
+  getReel: (id: ReelId) => api.get(`/reels/${id}`),
+  
+  // Create a new reel
+  createReel: (reelData: FormData) => api.post('/reels', reelData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  
+  // Delete a reel
+  deleteReel: (id: ReelId) => api.delete(`/reels/${id}`),
+  
+  // Like a reel
+  likeReel: (id: ReelId) => api.put(`/reels/like/${id}`),
+  
+  // Unlike a reel
+  unlikeReel: (id: ReelId) => api.put(`/reels/unlike/${id}`),
+  
+  // Add comment to a reel
+  addComment: (id: ReelId, commentData: ReelCommentData) => 
+    api.post(`/reels/comment/${id}`, commentData),
+  
+  // Delete comment from a reel
+  deleteComment: (reelId: ReelId, commentId: string) => 
+    api.delete(`/reels/comment/${reelId}/${commentId}`),
+};
+

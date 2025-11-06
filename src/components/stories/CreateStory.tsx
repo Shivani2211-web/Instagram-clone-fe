@@ -2,8 +2,14 @@ import React, { useRef, useState } from 'react';
 import { Box, IconButton, Typography, CircularProgress, Button } from '@mui/material';
 import { CameraAlt as CameraIcon, Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { storiesAPI } from '../../api/endpoints';
 
-export const CreateStory = ({ onClose }: { onClose: () => void }) => {
+interface CreateStoryProps {
+  onClose: () => void;
+  onStoryCreated?: () => void;
+}
+
+export const CreateStory = ({ onClose, onStoryCreated }: CreateStoryProps) => {
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -23,15 +29,26 @@ export const CreateStory = ({ onClose }: { onClose: () => void }) => {
     
     setIsLoading(true);
     try {
-      // Here you would typically upload the story to your backend
-      // const formData = new FormData();
-      // formData.append('story', selectedFile);
-      // await api.post('/stories', formData);
+      const formData = new FormData();
+      formData.append('image', selectedFile);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Upload the image
+      const uploadResponse = await storiesAPI.uploadStoryImage(formData);
       
-      onClose();
+      // Create the story with the uploaded image URL
+      if (uploadResponse && uploadResponse.url) {
+        await storiesAPI.createStory({
+          image: uploadResponse.url,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+        });
+        
+        // Notify parent component that story was created
+        if (onStoryCreated) {
+          onStoryCreated();
+        }
+        
+        onClose();
+      }
     } catch (error) {
       console.error('Error uploading story:', error);
     } finally {

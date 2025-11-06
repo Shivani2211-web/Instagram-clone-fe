@@ -57,7 +57,8 @@ const formatTimeAgo = (dateString?: string | null) => {
 };
 
 const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=User&background=random&color=fff&size=150";
-const IMAGE_PLACEHOLDER = "https://via.placeholder.com/600x400/f5f5f5/999999?text=Image+Not+Available";
+// Base64-encoded SVG as a data URL for the image placeholder
+const IMAGE_PLACEHOLDER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iNDAwIiB2aWV3Qm94PSIwIDAgNjAwIDQwMCI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkltYWdlIE5vdCBBdmFpbGFibGU8L3RleHQ+Cjwvc3ZnPg==";
 
 interface User {
   _id: string;
@@ -90,7 +91,6 @@ interface PostProps {
 
 const Post: React.FC<PostProps> = ({
   post,
-  currentUserId,
   onUpdate,
   onDelete,
 }) => {
@@ -162,10 +162,7 @@ const Post: React.FC<PostProps> = ({
       setIsLoading(false);
     }
   };
-const isGooglePhotosUrl = (url: string | undefined | null) => {
-  if (!url || typeof url !== 'string') return false;
-  return url.includes('google.com') || url.includes('googleusercontent.com');
-};
+  // Removed unused function
   const fetchComments = async (page = 1, append = false) => {
     if (!hasMoreComments && page > 1) return;
 
@@ -354,7 +351,7 @@ const isGooglePhotosUrl = (url: string | undefined | null) => {
         )}
         <CardMedia
           component="img"
-          image={isGooglePhotosUrl(currentImage) ? IMAGE_PLACEHOLDER : currentImage}
+          image={currentImage || IMAGE_PLACEHOLDER}
           alt={caption}
           onError={handleImageError}
           onLoad={handleImageLoad}
