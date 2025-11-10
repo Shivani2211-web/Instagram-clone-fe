@@ -74,12 +74,17 @@ interface Comment {
   createdAt: string;
 }
 
+interface PostImage {
+  public_id: string;
+  url: string;
+}
+
 interface PostProps {
   post: {
     _id: string;
     user: User;
-    image: string;
-    caption: string;
+    image: string | PostImage;
+    caption?: string;
     likes: { user: string }[];
     comments: Comment[];
     createdAt: string;
@@ -95,22 +100,20 @@ const Post: React.FC<PostProps> = ({
   onDelete,
 }) => {
   // Destructure post properties
-  const { _id, user, image, caption, likes = [], comments = [], createdAt } = post;
+  const { _id, user, image, likes = [], createdAt } = post;
   const { currentUser } = useAuth();
   // currentUserId is used in the component's props but not directly in the component
   // It's kept for potential future use
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [currentImage, setCurrentImage] = useState(image);
-  const [currentAvatar, setCurrentAvatar] = useState(user?.avatar || DEFAULT_AVATAR);
+  const [, setCurrentAvatar] = useState(user?.avatar || DEFAULT_AVATAR);
   const [commentText, setCommentText] = useState("");
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [postComments, setPostComments] = useState<Comment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-  // Comment error state is used in the catch blocks
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [commentError, setCommentError] = useState<string | null>(null);
+  const [, setCommentError] = useState<string | null>(null);
   const [commentPage, setCommentPage] = useState(1);
   const [hasMoreComments, setHasMoreComments] = useState(true);
   const commentsPerPage = 5;
@@ -125,22 +128,111 @@ const Post: React.FC<PostProps> = ({
     }
   }, [currentUser, likes]);
 
-  // Initialize comments when component mounts or post changes
+  // Initialize component with post data
   useEffect(() => {
-    if (post.comments && post.comments.length > 0) {
-      setPostComments(post.comments);
-    } else if (showComments) {
-      // If no comments in props but comments section is open, fetch them
-      fetchComments(1, false);
+    if (post) {
+      // Handle both string and PostImage types for the image
+      const processImage = (img: string | PostImage): string => {
+        if (typeof img === 'string') return img;
+        return img?.url || IMAGE_PLACEHOLDER;
+      };
+      
+      const imgUrl = processImage(post.image);
+      setCurrentImage(imgUrl);
+      
+      // Handle user avatar
+      if (user?.avatar) {
+        setCurrentAvatar(user.avatar);
+      }
+      
+      // Initialize comments if any
+      if (post.comments && post.comments.length > 0) {
+        setPostComments(post.comments);
+      } else if (showComments) {
+        // If no comments in props but comments section is open, fetch them
+        fetchComments(1, false);
+      }
+      
+      // Debug logging
+      if (import.meta.env.DEV) {
+        console.log('Post data loaded:', {
+          postId: post._id,
+          image: post.image,
+          processedImage: imgUrl,
+          user: post.user
+        });
+      }
     }
-  }, [post.comments, showComments]);
+  }, [post, showComments, user?.avatar]);
 
   // Handle image loading errors and loading states
   const handleImageError = () => {
-    setCurrentImage(IMAGE_PLACEHOLDER)
+    setCurrentImage(IMAGE_PLACEHOLDER);
     setIsImageLoading(false);
   };
-  const handleAvatarError = () => setCurrentAvatar(DEFAULT_AVATAR);
+
+  // Ensure image URL is absolute and properly formatted
+  const getImageUrl = (url: any): string => {
+    try {
+      // Handle null, undefined, or empty string
+      if (!url) return IMAGE_PLACEHOLDER;
+
+      // Handle object with url property (like { public_id: '...', url: '...' })
+      if (typeof url === 'object' && url !== null) {
+        if (url.url) {
+          return url.url;
+        }
+        // If no url property but has public_id, construct URL if needed
+        if (url.public_id) {
+          return `https://res.cloudinary.com/YOUR_CLOUD_NAME/image/upload/${url.public_id}`;
+        }
+        return IMAGE_PLACEHOLDER;
+      }
+      
+      // Ensure url is a string
+      const urlString = String(url);
+      
+      // Check if it's already an absolute URL or data URL
+      if (urlString.startsWith('http') || 
+          urlString.startsWith('blob:') || 
+          urlString.startsWith('data:')) {
+        return urlString;
+      }
+      
+      // Handle relative URLs
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      
+      // Handle uploads path
+      if (urlString.startsWith('/uploads/')) {
+        return `${baseUrl}${urlString}`;
+      }
+      
+      // Handle other relative paths
+      return `${baseUrl}${urlString.startsWith('/') ? '' : '/'}${urlString}`;
+    } catch (error) {
+      console.error('Error processing image URL:', error, 'Original URL:', url);
+      return IMAGE_PLACEHOLDER;
+    }
+  };
+  
+  // Get avatar URL with fallback
+  const getAvatarUrl = (url: string | null | undefined): string => {
+    // Return default if no URL provided
+    if (!url) return DEFAULT_AVATAR;
+    
+    try {
+      // Ensure URL is properly formatted
+      const avatarUrl = getImageUrl(url);
+      return avatarUrl || DEFAULT_AVATAR;
+    } catch (error) {
+      console.error('Error processing avatar URL:', error);
+      return DEFAULT_AVATAR;
+    }
+  };
+  const handleAvatarError = () => {
+    setCurrentAvatar(DEFAULT_AVATAR);
+    console.error('Failed to load avatar');
+  };
   const handleImageLoad = () => setIsImageLoading(false);
 
   // Handle post like/unlike
@@ -312,9 +404,10 @@ const Post: React.FC<PostProps> = ({
       <CardHeader
         avatar={
           <Avatar
-            src={currentAvatar}
-            alt={user?.name || "User"}
+            src={getAvatarUrl(user?.avatar)}
+            alt={user?.username}
             onError={handleAvatarError}
+            sx={{ width: 32, height: 32 }}
           />
         }
         action={
@@ -350,19 +443,19 @@ const Post: React.FC<PostProps> = ({
           <CircularProgress size={48} sx={{ position: "absolute", zIndex: 2 }} />
         )}
         <CardMedia
-          component="img"
-          image={currentImage || IMAGE_PLACEHOLDER}
-          alt={caption}
-          onError={handleImageError}
-          onLoad={handleImageLoad}
-          sx={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: isImageLoading ? 0 : 1,
-            transition: "opacity 0.3s ease-in-out",
-          }}
-        />
+            component="img"
+            image={getImageUrl(currentImage)}
+            alt="Post"
+            onError={handleImageError}
+            onLoad={handleImageLoad}
+            sx={{
+              width: '100%',
+              maxHeight: 600,
+              objectFit: 'contain',
+              display: isImageLoading ? 'none' : 'block',
+              backgroundColor: '#fafafa'
+            }}
+          />
       </Box>
 
       <CardActions sx={{ justifyContent: "space-between" }}>
