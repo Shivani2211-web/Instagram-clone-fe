@@ -340,6 +340,38 @@ export const bookmarksAPI = {
     api.get(`/bookmarks/check/${postId}`)
 };
 
+// Search endpoints
+export const searchAPI = {
+  // General search across all types
+  search: (query: string, type?: 'users' | 'hashtags' | 'reels' | 'songs') => {
+    const params = new URLSearchParams({ q: query });
+    if (type) {
+      params.append('type', type);
+    }
+    return api.get(`/search?${params.toString()}`);
+  },
+  
+  // Search users
+  searchUsers: (query: string) => 
+    api.get(`/search?q=${encodeURIComponent(query)}&type=users`),
+    
+  // Search hashtags
+  searchHashtags: (query: string) => 
+    api.get(`/search?q=${encodeURIComponent(query)}&type=hashtags`),
+    
+  // Search reels
+  searchReels: (query: string) => 
+    api.get(`/search?q=${encodeURIComponent(query)}&type=reels`),
+    
+  // Search songs
+  searchSongs: (query: string) => 
+    api.get(`/search?q=${encodeURIComponent(query)}&type=songs`),
+    
+  // Get search suggestions
+  getSearchSuggestions: (query: string) => 
+    api.get(`/search/suggestions?q=${encodeURIComponent(query)}`)
+};
+
 export default {
   auth: authAPI,
   posts: postsAPI,

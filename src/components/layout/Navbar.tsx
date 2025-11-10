@@ -9,6 +9,7 @@ import {
   FaPlayCircle,
   FaRegBell,
   FaBell,
+  FaSearch,
 } from "react-icons/fa";
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from "../../contexts/AuthContext";
@@ -24,6 +25,8 @@ const Navbar: React.FC = () => {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -88,8 +91,55 @@ const Navbar: React.FC = () => {
           <span>Instagram</span>
         </Link>
 
+        {/* Search - Mobile */}
+        <div className={`navbar__search-mobile ${showSearch ? 'active' : ''}`}>
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && searchQuery.trim()) {
+                navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                setShowSearch(false);
+              }
+            }}
+          />
+          <button 
+            className="close-search"
+            onClick={() => setShowSearch(false)}
+          >
+            ×
+          </button>
+        </div>
+
         {/* Icons */}
         <div className="navbar__icons">
+          {/* Search - Desktop */}
+          <div className="navbar__search-desktop">
+            <FaSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                }
+              }}
+            />
+          </div>
+
+          {/* Search - Mobile Toggle */}
+          <button 
+            className="navbar__icon" 
+            title="Search"
+            onClick={() => setShowSearch(!showSearch)}
+          >
+            <FaSearch />
+          </button>
+
           {/* Home */}
           <Link to="/" className={`navbar__icon ${isActive("/")}`} title="Home">
             <svg

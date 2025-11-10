@@ -1,8 +1,105 @@
+/* ====== SEARCH ====== */
+.navbar__search-desktop {
+  flex: 0 1 215px;
+  min-width: 125px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #efefef;
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-right: 10px;
+  width: 200px;
+  transition: width 0.3s ease;
+}
+
+.navbar__search-desktop:focus-within {
+  width: 250px;
+}
+
+.navbar__search-desktop .search-icon {
+  color: #8e8e8e;
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.navbar__search-desktop input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  width: 100%;
+  color: #262626;
+}
+
+.navbar__search-desktop input::placeholder {
+  color: #8e8e8e;
+}
+
+/* Mobile search */
+.navbar__search-mobile {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  padding: 10px 15px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.navbar__search-mobile.active {
+  transform: translateY(0);
+}
+
+.navbar__search-mobile input {
+  width: 100%;
+  padding: 8px 35px 8px 15px;
+  border: 1px solid #dbdbdb;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+}
+
+.navbar__search-mobile .close-search {
+  position: absolute;
+  right: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #8e8e8e;
+  cursor: pointer;
+  padding: 0 5px;
+}
+
+/* Hide desktop search on mobile */
+@media (max-width: 735px) {
+  .navbar__search-desktop {
+    display: none;
+  }
+  
+  .navbar__search-mobile {
+    display: block;
+  }
+}
+
+/* Hide mobile search toggle on desktop */
+@media (min-width: 736px) {
+  .navbar__search-mobile + .navbar__icons > button[title="Search"] {
+    display: none;
+  }
+}
+
 /* ====== NAVBAR CONTAINER ====== */
 .navbar {
   background: #fff;
   border-bottom: 1px solid #e5e5e5;
-  padding: 10px 20px;
+  padding: 10px 0;
   position: sticky;
   top: 0;
   width: 100%;
@@ -13,8 +110,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 950px;
+  max-width: 975px;
   margin: 0 auto;
+  padding: 0 20px;
+  height: 54px;
+  position: relative;
+  gap: 20px;
 }
 
 /* ====== BRAND (Logo + Text) ====== */
@@ -22,22 +123,32 @@
   display: flex;
   align-items: center;
   font-weight: 600;
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   text-decoration: none;
   color: #262626;
   letter-spacing: -0.3px;
+  margin-top: 5px;
+  min-width: 103px;
+  flex-shrink: 0;
 }
 
 .navbar__brand span {
   margin-left: 6px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar__brand img {
+  height: 29px;
 }
 
 /* ====== ICONS BAR ====== */
 .navbar__icons {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 22px;
   position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .navbar__icon {
@@ -45,14 +156,20 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   color: #262626;
-  transition: 0.2s ease;
+  transition: opacity 0.2s ease;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .navbar__icon:hover {
-  color: #ed4956;
-  transform: scale(1.08);
+  color: #262626;
+  transform: none;
+  opacity: 0.7;
 }
 
 /* ====== BADGE (for unread counts) ====== */
