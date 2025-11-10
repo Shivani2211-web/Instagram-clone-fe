@@ -118,14 +118,28 @@ export const usersAPI = {
   
   // Get user profile by ID
   getUserProfileById: (userId: string) => api.get(`/users/profile/${userId}`),
-  
-  // Follow/unfollow
-  followUser: (userId: string) => api.put(`/users/follow/${userId}`),
-  unfollowUser: (userId: string) => api.put(`/users/unfollow/${userId}`),
-  
+
+  // Follow/unfollow and follow requests
+  followUser: (userId: string) => api.post(`/users/follow/${userId}`),
+  sendFollowRequest: (userId: string) => api.post(
+    `/users/follow-request/${userId}`,
+    {},
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    }
+  ),
+  getFollowRequests: () => api.get('/users/me/requests'),
+  acceptFollowRequest: (followerId: string) => api.post(`/users/${followerId}/accept`),
+  declineFollowRequest: (followerId: string) => api.delete(`/users/${followerId}/decline`),
+  unfollowUser: (userId: string) => api.delete(`/users/${userId}/unfollow`),
+  cancelFollowRequest: (userId: string) => api.delete(`/users/${userId}/cancel-request`),
+
   // Get user's posts
   getUserPosts: (userId: string) => api.get(`/users/posts/${userId}`),
-  
+
   // Search users (returns array of users)
   searchUsers: (query: string) => api.get(`/users/search?q=${query}`).then(res => {
     // Ensure we always return an array

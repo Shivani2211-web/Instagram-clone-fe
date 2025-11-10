@@ -46,6 +46,12 @@ const Reels = () => {
         setError('Failed to load reels. Please try again later.');
       } finally {
         setLoading(false);
+        videoRefs.current.forEach(video => {
+          if (video) {
+            video.pause();
+            video.currentTime = 0;
+          }
+        });
       }
     };
 
@@ -142,7 +148,7 @@ const Reels = () => {
         <Typography color="error">{error}</Typography>
       </Box>
     );
-  }  const togglePlayPause = async () => {
+  }   const togglePlayPause = async () => {
     const video = videoRefs.current[currentReelIndex];
     if (!video) return;
 
@@ -153,16 +159,37 @@ const Reels = () => {
       } else {
         const playPromise = video.play();
         if (playPromise !== undefined) {
-          await playPromise.catch(error => {
-            // Handle the error if the video fails to play
-            console.error('Error playing video:', error);
+          // Store the promise to handle cleanup
+          const currentPlayPromise = playPromise;
+          
+          const result = await Promise.race([
+            currentPlayPromise,
+            new Promise((_, reject) => {
+              // This will reject if the component unmounts or video is removed
+              const onAbort = () => reject(new Error('Playback aborted'));
+              video.addEventListener('abort', onAbort, { once: true });
+              return () => video.removeEventListener('abort', onAbort);
+            })
+          ]).catch(error => {
+            // Only log if it's not our expected abort error
+            if (error.message !== 'Playback aborted') {
+              console.error('Error playing video:', error);
+            }
             setIsPlaying(false);
+            return null;
           });
-          setIsPlaying(true);
+
+          if (result !== null) {
+            setIsPlaying(true);
+          }
         }
       }
-    } catch (error) {
-      console.error('Error toggling play/pause:', error);
+    } catch (error: unknown) {
+      // Ignore the error if it's because the video was removed
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error toggling play/pause:', error);
+      }
+      setIsPlaying(false);
     }
   };
 
@@ -396,4 +423,4 @@ const Reels = () => {
   );
 };
 
-export default Reels;
+export default Reels

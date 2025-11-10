@@ -29,6 +29,7 @@ import {
   Autorenew as SendingIcon 
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { usersAPI } from '../../api/endpoints';
 import type { IMessage } from '../../contexts/MessageContext';
 
 interface MessageBubbleProps {
@@ -307,10 +308,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       setUserProfile(data.data);
       
       // Check if current user is following this user
-      const followCheck = await fetch(`/api/v1/users/${recipient._id}/follow-status`);
-      if (followCheck.ok) {
-        const followData = await followCheck.json();
-        setIsFollowing(followData.isFollowing);
+      const followStatus = await usersAPI.getUserProfileById(recipient._id);
+      if (followStatus.data) {
+        setIsFollowing(followStatus.data.isFollowing || false);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -323,22 +323,47 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!recipient) return;
     
     try {
-      const method = isFollowing ? 'DELETE' : 'POST';
-      const response = await fetch(`/api/v1/users/${recipient._id}/follow`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-      });
-      
-      if (response.ok) {
-        setIsFollowing(!isFollowing);
+      if (isFollowing) {
+        // For unfollowing
+        await usersAPI.unfollowUser(recipient._id);
+        setIsFollowing(false);
         // Update followers count
         setUserProfile((prev: any) => ({
           ...prev,
-          followers: isFollowing ? prev.followers - 1 : prev.followers + 1
+          followers: Math.max(0, (prev.followers || 0) - 1)
         }));
+      } else {
+        // Try to send follow request
+        console.log('Sending follow request to:', recipient._id);
+        const response = await usersAPI.sendFollowRequest(recipient._id);
+        console.log('Follow request response:', response);
+        
+        if (response.data && response.data.success) {
+          // Update UI to show request sent state
+          setUserProfile((prev: any) => ({
+            ...prev,
+            followRequestSent: true
+          }));
+          console.log('Follow request sent successfully');
+          // You might want to show a success notification here
+        } else {
+          throw new Error('Failed to send follow request');
+        }
       }
-    } catch (error) {
-      console.error('Error toggling follow:', error);
+    } catch (error: any) {
+      console.error('Error toggling follow:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data
+        }
+      });
+      // Show error message to user
+      // You might want to use a toast or alert here
+      alert(`Failed to ${isFollowing ? 'unfollow' : 'follow'} user. Please try again.`);
     }
   };
 
