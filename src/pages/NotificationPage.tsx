@@ -1,12 +1,27 @@
 import React from 'react';
 import NotificationsList from '../components/notification/NotificationList';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Container } from '@mui/material';
 
 const NotificationsPage: React.FC = () => {
   return (
-    <Box sx={{maxWidth:'1200px',mx:'auto',p:4,color:"white"}}>
-      <Typography variant="h4" sx={{mb:4}} >Notifications</Typography>
-      <NotificationsList />
+    <Box sx={{ 
+      minHeight: '100vh',
+      bgcolor: 'background.paper',
+      py: 4
+    }}>
+      <Container maxWidth="md">
+        <Typography 
+          variant="h4" 
+          sx={{ 
+            mb: 4,
+            color: 'text.primary',
+            fontWeight: 600
+          }}
+        >
+          Notifications
+        </Typography>
+        <NotificationsList />
+      </Container>
     </Box>
   );
 };

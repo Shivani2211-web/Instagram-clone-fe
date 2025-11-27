@@ -291,35 +291,96 @@ export const commentsAPI = {
     api.delete(`/comments/${commentId}/like`)
 };
 
-// Notifications endpoints
 export const notificationsAPI = {
-  // Get user notifications
-  getNotifications: () => api.get('/notifications'),
+  /**
+   * Get paginated notifications
+   * @param {Object} params - Query parameters
+   * @param {number} [params.page=1] - Page number
+   * @param {number} [params.limit=20] - Items per page
+   * @param {boolean} [params.unread] - Set to true to get only unread notifications
+   * @returns {Promise} Promise that resolves to the notifications data
+   */
+  getNotifications: (params: { page?: number; limit?: number; unread?: boolean } = {}) => 
+    api.get('/notifications', { params }),
   
-  // Mark notification as read
-  markAsRead: (notificationId: string) => 
-    api.patch(`/notifications/${notificationId}/read`),
+  /**
+   * Get count of unread notifications
+   * @returns {Promise} Promise that resolves to the unread count
+   */
+  getUnreadCount: () => api.get('/notifications/unread-count'),
   
-  // Mark all notifications as read
-  markAllAsRead: () => api.patch('/notifications/read-all'),
+  /**
+   * Mark a notification as read
+   * @param {string} id - Notification ID
+   * @returns {Promise} Promise that resolves to the updated notification
+   */
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
   
-  // Get unread notifications count
-  getUnreadCount: () => api.get('/notifications/unread-count')
-};
-
-// Explore endpoints
-export const exploreAPI = {
-  // Get trending posts
-  getTrendingPosts: (limit = 20) => 
-    api.get('/explore/trending', { params: { limit } }),
+  /**
+   * Mark all notifications as read
+   * @returns {Promise} Promise that resolves when all notifications are marked as read
+   */
+  markAllAsRead: () => api.patch('/notifications/mark-all-read'),
   
-  // Search posts by hashtag
-  searchByHashtag: (hashtag: string, page = 1, limit = 20) => 
-    api.get('/explore/hashtag', { params: { hashtag, page, limit } }),
+  /**
+   * Delete a notification
+   * @param {string} id - Notification ID
+   * @returns {Promise} Promise that resolves when the notification is deleted
+   */
+  deleteNotification: (id: string) => api.delete(`/notifications/${id}`),
   
-  // Get suggested users to follow
-  getSuggestedUsers: (limit = 10) => 
-    api.get('/explore/suggested-users', { params: { limit } })
+  /**
+   * Clear all notifications
+   * @returns {Promise} Promise that resolves when all notifications are cleared
+   */
+  clearAllNotifications: () => api.delete('/notifications'),
+  /**
+   * Get notification settings
+   * @returns {Promise} Promise that resolves to the notification settings
+   */
+  getSettings: () => api.get('/notifications/settings'),
+  
+  /**
+   * Update notification settings
+   * @param {Object} settings - Notification settings to update
+   * @param {boolean} [settings.emailNotifications]
+   * @param {boolean} [settings.pushNotifications]
+   * @param {boolean} [settings.inAppNotifications]
+   * @param {boolean} [settings.mentions]
+   * @param {boolean} [settings.newFollowers]
+   * @param {boolean} [settings.comments]
+   * @param {boolean} [settings.likes]
+   * @param {boolean} [settings.messages]
+   * @returns {Promise} Promise that resolves to the updated settings
+   */
+  updateSettings: (settings: {
+    emailNotifications?: boolean;
+    pushNotifications?: boolean;
+    inAppNotifications?: boolean;
+    mentions?: boolean;
+    newFollowers?: boolean;
+    comments?: boolean;
+    likes?: boolean;
+    messages?: boolean;
+  }) => api.patch('/notifications/settings', settings),
+  
+  /**
+   * Create a new notification
+   * @param {Object} notificationData - Notification data
+   * @param {string} notificationData.userId - Recipient user ID
+   * @param {string} notificationData.type - Notification type (e.g., 'follow', 'like', 'comment', 'mention', 'message')
+   * @param {string} [notificationData.postId] - Optional post ID
+   * @param {string} [notificationData.commentId] - Optional comment ID
+   * @param {string} [notificationData.comment] - Optional comment text
+   * @returns {Promise} Promise that resolves to the created notification
+   */
+  createNotification: (notificationData: {
+    userId: string;
+    type: 'follow' | 'like' | 'comment' | 'mention' | 'message' | 'post_like' | 'post_comment' | 'post_mention' | 'post_shared';
+    postId?: string;
+    commentId?: string;
+    comment?: string;
+  }) => api.post('/notifications', notificationData)
 };
 
 // Bookmarks endpoints
@@ -337,39 +398,103 @@ export const bookmarksAPI = {
   
   // Check if post is bookmarked
   isBookmarked: (postId: string) => 
-    api.get(`/bookmarks/check/${postId}`)
+    api.get(`/bookmarks/${postId}`)
 };
 
 // Search endpoints
 export const searchAPI = {
-  // General search across all types
-  search: (query: string, type?: 'users' | 'hashtags' | 'reels' | 'songs') => {
-    const params = new URLSearchParams({ q: query });
-    if (type) {
+  /**
+   * General search across all types
+   * @param query Search term
+   * @param type Optional type filter: 'users' | 'hashtags' | 'reels' | 'songs' | 'all'
+   * @param page Optional page number for pagination
+   * @param limit Optional items per page
+   */
+  search: (query: string, type: 'users' | 'hashtags' | 'reels' | 'songs' | 'all' = 'all', page?: number, limit?: number) => {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    if (type !== 'all') {
       params.append('type', type);
     }
-    return api.get(`/search?${params.toString()}`);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return api.get(`/api/v1/search?${params.toString()}`);
   },
-  
-  // Search users
-  searchUsers: (query: string) => 
-    api.get(`/search?q=${encodeURIComponent(query)}&type=users`),
-    
-  // Search hashtags
-  searchHashtags: (query: string) => 
-    api.get(`/search?q=${encodeURIComponent(query)}&type=hashtags`),
-    
-  // Search reels
-  searchReels: (query: string) => 
-    api.get(`/search?q=${encodeURIComponent(query)}&type=reels`),
-    
-  // Search songs
-  searchSongs: (query: string) => 
-    api.get(`/search?q=${encodeURIComponent(query)}&type=songs`),
-    
-  // Get search suggestions
+
+  /**
+   * Get search suggestions
+   * @param query Search term for suggestions
+   */
   getSearchSuggestions: (query: string) => 
-    api.get(`/search/suggestions?q=${encodeURIComponent(query)}`)
+    api.get(`/api/v1/search/suggestions?q=${encodeURIComponent(query)}`),
+  
+  /**
+   * Search users by name, username, or email
+   * @param query Search term
+   * @param page Optional page number for pagination
+   * @param limit Optional items per page
+   */
+  searchUsers: (query: string, page?: number, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return api.get(`/api/v1/search?${params.toString()}&type=users`);
+  },
+
+  /**
+   * Search posts by hashtags or captions
+   * @param hashtag Hashtag to search for (without #)
+   * @param page Optional page number for pagination
+   * @param limit Optional items per page
+   */
+  searchHashtags: (hashtag: string, page?: number, limit?: number) => {
+    const params = new URLSearchParams({ q: hashtag });
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return api.get(`/api/v1/search?${params.toString()}&type=hashtags`);
+  },
+
+  /**
+   * Search reels by caption or description
+   * @param query Search term
+   * @param page Optional page number for pagination
+   * @param limit Optional items per page
+   */
+  searchReels: (query: string, page?: number, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return api.get(`/api/v1/search?${params.toString()}&type=reels`);
+  },
+
+  /**
+   * Search reels by song name
+   * @param songName Name of the song to search for
+   * @param page Optional page number for pagination
+   * @param limit Optional items per page
+   */
+  searchSongs: (songName: string, page?: number, limit?: number) => {
+    const params = new URLSearchParams({ q: songName });
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    return api.get(`/api/v1/search?${params.toString()}&type=songs`);
+  }
+};
+
+// Explore endpoints
+export const exploreAPI = {
+  // Get trending posts
+  getTrendingPosts: (limit = 20) => 
+    api.get('/explore/trending', { params: { limit } }),
+  
+  // Get suggested users to follow
+  getSuggestedUsers: (limit = 10) => 
+    api.get('/explore/suggested-users', { params: { limit } })
 };
 
 export default {
@@ -383,6 +508,7 @@ export default {
   explore: exploreAPI,
   bookmarks: bookmarksAPI,
 };
+
 export const ReelsApi = {
   // Get all reels
   getReels: () => api.get('/reels'),
@@ -407,10 +533,20 @@ export const ReelsApi = {
   deleteReel: (id: ReelId) => api.delete(`/reels/${id}`),
   
   // Like a reel
-  likeReel: (id: ReelId) => api.put(`/reels/like/${id}`),
-  
+  likeReel: (id: ReelId) => api.put(`/api/v1/reels/like/${id}`, {}, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  }),
+
   // Unlike a reel
-  unlikeReel: (id: ReelId) => api.put(`/reels/unlike/${id}`),
+  unlikeReel: (id: ReelId) => api.put(`/api/v1/reels/unlike/${id}`, {}, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  }),
   
   // Add comment to a reel
   addComment: (id: ReelId, commentData: ReelCommentData) => 

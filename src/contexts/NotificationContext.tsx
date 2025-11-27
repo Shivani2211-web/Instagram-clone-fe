@@ -1,5 +1,24 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { getNotifications, getUnreadCount, markAsRead as markAsReadApi } from '../services/notificationService';
+
+// Define the notification type
+type NotificationType = 'like' | 'follow' | 'comment' | 'mention' | 'message' | 'follow_request' | 'post_like' | 'post_comment' | 'post_mention' | 'post_shared';
+
+interface ApiNotification {
+  _id: string;
+  type: NotificationType;
+  read: boolean;
+  createdAt: string;
+  sender?: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+  postId?: string;
+  commentId?: string;
+  comment?: string;
+}
 
 export interface Notification {
   id: string;
@@ -23,31 +42,67 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCountState, setUnreadCountState] = useState(0);
   const { currentUser } = useAuth();
 
-  // Load notifications from localStorage on mount
-  useEffect(() => {
-    if (currentUser?.id) {
-      const savedNotifications = localStorage.getItem(`notifications_${currentUser.id}`);
-      if (savedNotifications) {
-        try {
-          const parsed = JSON.parse(savedNotifications);
-          if (Array.isArray(parsed)) {
-            setNotifications(parsed);
-          }
-        } catch (error) {
-          console.error('Error parsing saved notifications:', error);
-        }
+  // Fetch notifications from API
+  const fetchNotifications = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const [notificationsRes, unreadCountRes] = await Promise.all([
+        getNotifications({ unread: false }),
+        getUnreadCount()
+      ]);
+      
+      if (notificationsRes.data) {
+        setNotifications(notificationsRes.data.map((n: any) => ({
+          id: n._id,
+          text: getNotificationText(n),
+          time: n.createdAt,
+          read: n.read ? 'read' : 'unread',
+          type: n.type,
+          userId: n.sender?._id,
+          postId: n.postId
+        })));
       }
+      
+      setUnreadCountState(unreadCountRes);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
   }, [currentUser]);
 
-  // Save notifications to localStorage when they change
-  useEffect(() => {
-    if (currentUser?.id) {
-      localStorage.setItem(`notifications_${currentUser.id}`, JSON.stringify(notifications));
+  // Helper function to generate notification text based on type
+  const getNotificationText = (notification: any): string => {
+    const user = notification.sender?.username || 'Someone';
+    const type = notification.type;
+    
+    switch (type) {
+      case 'follow':
+        return `${user} started following you`;
+      case 'like':
+        return `${user} liked your post`;
+      case 'comment':
+        return `${user} commented on your post`;
+      case 'mention':
+        return `${user} mentioned you in a comment`;
+      case 'follow_request':
+        return `${user} wants to follow you`;
+      default:
+        return 'New notification';
     }
-  }, [notifications, currentUser]);
+  };
+
+  // Load notifications when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      fetchNotifications();
+      // Set up polling to check for new notifications
+      const interval = setInterval(fetchNotifications, 60000); // Check every minute
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, fetchNotifications]);
 
   const requestNotificationPermission = async () => {
     if ('Notification' in window) {
@@ -94,27 +149,43 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const markAsRead = (id: string | number) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, read: 'read' as const } : notif
-      )
-    );
+  const markAsRead = async (id: string | number) => {
+    try {
+      await markAsReadApi([id.toString()]);
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === id ? { ...notif, read: 'read' as const } : notif
+        )
+      );
+      setUnreadCountState((prev: number) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, read: 'read' as const }))
-    );
+  const markAllAsRead = async () => {
+    try {
+      const unreadIds = notifications
+        .filter(n => n.read === 'unread')
+        .map(n => n.id);
+      
+      if (unreadIds.length > 0) {
+        await markAsReadApi(unreadIds);
+        setNotifications(prev =>
+          prev.map(notif => ({ ...notif, read: 'read' as const }))
+        );
+        setUnreadCountState(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
-
-  const unreadCount = notifications.filter(n => n.read === 'unread').length;
 
   return (
     <NotificationContext.Provider
       value={{
         notifications,
-        unreadCount,
+        unreadCount: unreadCountState,
         addNotification,
         markAsRead,
         markAllAsRead,

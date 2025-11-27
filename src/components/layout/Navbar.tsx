@@ -10,12 +10,16 @@ import {
   FaRegBell,
   FaBell,
   FaSearch,
+  FaHashtag,
+  FaMusic,
+  FaVideo
 } from "react-icons/fa";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNotifications, useUnreadNotifications } from "../../contexts/NotificationContext";
 import { useMessages } from "../../contexts/MessageContext";
 import { Iconify } from "../../iconify";
+import { searchApi } from "../../api/searchApi"; // ✅ Use the search API
 import "../../Navbar.css";
 
 const Navbar: React.FC = () => {
@@ -25,27 +29,76 @@ const Navbar: React.FC = () => {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  
-  // Use notification context
-  const { 
-    notifications, 
-    markAsRead, 
-    markAllAsRead 
-  } = useNotifications();
-  
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const { conversations } = useMessages();
   const unreadNotifications = useUnreadNotifications();
-  
-  // Calculate total unread messages across all conversations
+
   const totalUnreadMessages = conversations.reduce(
-    (total, conversation) => total + (conversation.unreadCount || 0), 
+    (total, c) => total + (c.unreadCount || 0),
     0
   );
+
+  // 🔍 Fetch live search suggestions (debounced)
+  useEffect(() => {
+    const delay = setTimeout(async () => {
+      if (searchQuery.trim().length > 1) {
+        setLoadingSearch(true);
+        try {
+          const res = await searchApi.suggestions(searchQuery);
+          // Combine users, hashtags, reels, songs into one flat array
+          const combined = [
+            ...(res?.data?.users || []).map((u: any) => ({ ...u, _type: "user" })),
+            ...(res?.data?.hashtags || []).map((h: any) => ({ ...h, _type: "hashtag" })),
+            ...(res?.data?.reels || []).map((r: any) => ({ ...r, _type: "reel" })),
+            ...(res?.data?.songs || []).map((s: any) => ({ ...s, _type: "song" })),
+          ];
+          setSuggestions(combined);
+        } catch (err) {
+          console.error("Error fetching search suggestions:", err);
+        } finally {
+          setLoadingSearch(false);
+        }
+      } else {
+        setSuggestions([]);
+      }
+    }, 400);
+
+    return () => clearTimeout(delay);
+  }, [searchQuery]);
+
+  // 🧹 Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Don't close if clicking on a suggestion item
+      if (target.closest('.search-suggestion-item')) {
+        return;
+      }
+      
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setShowNotifications(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(target)) {
+        setShowProfileMenu(false);
+      }
+      if (searchBoxRef.current && !searchBoxRef.current.contains(target)) {
+        setSuggestions([]);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -56,23 +109,30 @@ const Navbar: React.FC = () => {
     }
   };
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(target)
-      ) {
-        setShowNotifications(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(target)) {
-        setShowProfileMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const handleSearchSelect = (item: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setSearchQuery("");
+    setSuggestions([]);
+    
+    switch (item._type) {
+      case "user":
+        window.location.href = `/profile/${item.username}`; // Force full page navigation
+        break;
+      case "hashtag":
+        navigate(`/search?q=${encodeURIComponent(item.name)}&type=hashtags`);
+        break;
+      case "reel":
+        navigate(`/reels/${item._id}`, { replace: true });
+        break;
+      case "song":
+        navigate(`/search?q=${encodeURIComponent(item.name)}&type=songs`);
+        break;
+      default:
+        navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   const isActive = (path: string) =>
     location.pathname === path ? "active" : "";
@@ -91,56 +151,91 @@ const Navbar: React.FC = () => {
           <span>Instagram</span>
         </Link>
 
-        {/* Search - Mobile */}
-        <div className={`navbar__search-mobile ${showSearch ? 'active' : ''}`}>
+        {/* 🔍 Search (Desktop) */}
+        <div className="navbar__search-desktop" ref={searchBoxRef}>
+          <FaSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Search users, hashtags, reels..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => {
-              if (e.key === 'Enter' && searchQuery.trim()) {
+              if (e.key === "Enter" && searchQuery.trim()) {
                 navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-                setShowSearch(false);
+                setSuggestions([]);
               }
             }}
           />
-          <button 
-            className="close-search"
-            onClick={() => setShowSearch(false)}
-          >
-            ×
-          </button>
+
+          {/* Live Search Suggestions */}
+          {suggestions.length > 0 && (
+            <div className="search-suggestions">
+              {loadingSearch && <div className="loading">Loading...</div>}
+              {!loadingSearch &&
+                suggestions.map((item, i) => (
+                  <div
+                    key={i}
+                    className="search-suggestion-item"
+                    onClick={(e) => handleSearchSelect(item, e)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {item._type === "user" && (
+                      <>
+                        <img
+                          src={item.avatar || "/assets/default-avatar.png"}
+                          alt={item.username}
+                          className="suggestion-avatar"
+                        />
+                        <div>
+                          <p>@{item.username}</p>
+                          <small>User</small>
+                        </div>
+                      </>
+                    )}
+                    {item._type === "hashtag" && (
+                      <>
+                        <FaHashtag className="suggestion-icon hashtag" />
+                        <div>
+                          <p>#{item.name}</p>
+                          <small>Hashtag</small>
+                        </div>
+                      </>
+                    )}
+                    {item._type === "reel" && (
+                      <>
+                        <FaVideo className="suggestion-icon reel" />
+                        <div>
+                          <p>{item.caption || "Reel video"}</p>
+                          <small>Reel</small>
+                        </div>
+                      </>
+                    )}
+                    {item._type === "song" && (
+                      <>
+                        <FaMusic className="suggestion-icon song" />
+                        <div>
+                          <p>{item.name}</p>
+                          <small>Song</small>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
 
-        {/* Icons */}
+        {/* 🔍 Mobile Search Toggle */}
+        <button
+          className="navbar__icon"
+          title="Search"
+          onClick={() => setShowSearch(!showSearch)}
+        >
+          <FaSearch />
+        </button>
+
+        {/* 🏠 Icons */}
         <div className="navbar__icons">
-          {/* Search - Desktop */}
-          <div className="navbar__search-desktop">
-            <FaSearch className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && searchQuery.trim()) {
-                  navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-                }
-              }}
-            />
-          </div>
-
-          {/* Search - Mobile Toggle */}
-          <button 
-            className="navbar__icon" 
-            title="Search"
-            onClick={() => setShowSearch(!showSearch)}
-          >
-            <FaSearch />
-          </button>
-
-          {/* Home */}
           <Link to="/" className={`navbar__icon ${isActive("/")}`} title="Home">
             <svg
               aria-label="Home"
@@ -153,12 +248,11 @@ const Navbar: React.FC = () => {
             </svg>
           </Link>
 
-          {/* Reels */}
           <Link to="/reels" className={`navbar__icon ${isActive("/reels")}`} title="Reels">
             <FaPlayCircle size={22} />
           </Link>
 
-          {/* Messages */}
+          {/* ✉️ Messages */}
           <div className="navbar__dropdown">
             <button
               className="navbar__icon"
@@ -168,13 +262,13 @@ const Navbar: React.FC = () => {
               <FaRegPaperPlane />
               {totalUnreadMessages > 0 && (
                 <span className="navbar__badge">
-                  {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
+                  {totalUnreadMessages > 9 ? "9+" : totalUnreadMessages}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Notifications */}
+          {/* 🔔 Notifications */}
           <div className="navbar__dropdown" ref={notificationsRef}>
             <button
               className="navbar__icon"
@@ -197,13 +291,13 @@ const Navbar: React.FC = () => {
                 </>
               )}
             </button>
-            
+
             {showNotifications && (
               <div className="navbar__dropdown-content notification-dropdown">
                 <div className="notification-header">
                   <h4>Notifications</h4>
                   {unreadNotifications.length > 0 && (
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         markAllAsRead();
@@ -214,28 +308,32 @@ const Navbar: React.FC = () => {
                     </button>
                   )}
                 </div>
-                
+
                 <div className="notification-list">
                   {notifications.length > 0 ? (
                     notifications.slice(0, 5).map((n) => (
-                      <Link 
-                        key={n.id} 
-                        to={n.postId ? `/p/${n.postId}` : '#'}
-                        className={`notification-item ${n.read === 'unread' ? 'unread' : ''}`}
+                      <Link
+                        key={n.id}
+                        to={n.postId ? `/p/${n.postId}` : "#"}
+                        className={`notification-item ${
+                          n.read === "unread" ? "unread" : ""
+                        }`}
                         onClick={() => markAsRead(n.id)}
                       >
                         <div className="notification-icon">
-                          {n.type === 'like' && <FaHeart style={{ color: '#ed4956' }} />}
-                          {n.type === 'follow' && <FaUser style={{ color: '#0095f6' }} />}
-                          {!n.type && <FaBell style={{ color: '#8e8e8e' }} />}
+                          {n.type === "like" && <FaHeart style={{ color: "#ed4956" }} />}
+                          {n.type === "follow" && <FaUser style={{ color: "#0095f6" }} />}
+                          {!n.type && <FaBell style={{ color: "#8e8e8e" }} />}
                         </div>
                         <div className="notification-content">
                           <p>{n.text}</p>
                           <small>
-                            {formatDistanceToNow(new Date(n.time), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(n.time), {
+                              addSuffix: true,
+                            })}
                           </small>
                         </div>
-                        {n.read === 'unread' && <div className="unread-dot"></div>}
+                        {n.read === "unread" && <div className="unread-dot"></div>}
                       </Link>
                     ))
                   ) : (
@@ -246,7 +344,7 @@ const Navbar: React.FC = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {notifications.length > 0 && (
                   <Link to="/notifications" className="view-all">
                     View all notifications
@@ -256,8 +354,7 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Profile */}
-          {/* Profile Dropdown */}
+          {/* 👤 Profile */}
           <div className="navbar__dropdown" ref={profileRef}>
             <button
               className="navbar__icon"
@@ -275,18 +372,15 @@ const Navbar: React.FC = () => {
                 >
                   <FaUser className="icon-sm" /> Profile
                 </Link>
-
                 <Link to="/settings" className="dropdown-item">
                   ⚙️ Settings
                 </Link>
-
                 <button onClick={handleLogout} className="dropdown-item logout">
                   <FaSignOutAlt className="icon-sm" /> Logout
                 </button>
               </div>
             )}
           </div>
-
         </div>
       </div>
     </nav>

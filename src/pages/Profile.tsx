@@ -2,15 +2,19 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
-  Grid,
-  Avatar,
   Typography,
+  Avatar,
   Button,
-  CircularProgress,
   Container,
+  CircularProgress,
+  Tabs,
+  Tab,
+  Divider,
   Paper,
 } from "@mui/material";
+import { Edit as EditIcon, GridOn, BookmarkBorder } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from '@mui/material/styles';
 import { usersAPI } from "../api/endpoints";
 
 interface UserProfile {
@@ -21,6 +25,8 @@ interface UserProfile {
   followers: number;
   following: number;
   posts: UserPost[];
+  isFollowing?: boolean;
+  hasPendingRequest?: boolean;
 }
 
 interface UserPost {
@@ -35,7 +41,20 @@ const Profile = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLoadingFollow, setIsLoadingFollow] = useState(false);
   const navigate = useNavigate();
+  const theme = useTheme();
+
+  // Update follow status when user data changes
+  useEffect(() => {
+    if (user) {
+      setIsFollowing(user.isFollowing || false);
+      setFollowersCount(user.followers);
+    }
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,10 +84,10 @@ const Profile = () => {
           profilePicture: data.profilePicture || "/assets/default-avatar.png",
           username: data.username,
           bio: data.bio || "Hey there! I'm using Instagram Clone 🌸",
-          followers:
-            typeof data.followers === "number" ? data.followers : data.followers?.length || 0,
-          following:
-            typeof data.following === "number" ? data.following : data.following?.length || 0,
+          followers: typeof data.followers === "number" ? data.followers : data.followers?.length || 0,
+          following: typeof data.following === "number" ? data.following : data.following?.length || 0,
+          isFollowing: data.isFollowing || false,
+          hasPendingRequest: data.hasPendingRequest || false,
           posts: (data.posts || []).map((post: any) => ({
             id: post._id || post.id,
             imageUrl: post.image || post.imageUrl || "/assets/default-post.png",
@@ -148,116 +167,253 @@ const Profile = () => {
 
   const isCurrentUser = currentUser?.username === user.username;
 
+  const handleFollowToggle = async () => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    setIsLoadingFollow(true);
+    try {
+      if (isFollowing) {
+        await usersAPI.unfollowUser(user.id);
+        setFollowersCount(prev => Math.max(0, prev - 1));
+      } else {
+        await usersAPI.followUser(user.id);
+        setFollowersCount(prev => prev + 1);
+      }
+      setIsFollowing(!isFollowing);
+    } catch (err) {
+      console.error('Error toggling follow:', err);
+      setError('Failed to update follow status');
+    } finally {
+      setIsLoadingFollow(false);
+    }
+  };
+
   return (
-    <Container maxWidth="md" sx={{ py: 6 }}>
-      {/* Profile Header */}
-      <Grid container spacing={4} alignItems="center">
-        <Grid container spacing={4} alignItems="center">
-          <Avatar
-            src={user.profilePicture}
-            alt={user.username}
-            sx={{
-              width: 130,
-              height: 130,
-              border: "3px solid #e1306c",
-              boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", py: 2 }}>
+      <Container maxWidth="md">
+        {/* Profile Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          py: 4,
+          '& > *': {
+            flex: '1 1 100%',
+            [theme.breakpoints.up('sm')]: {
+              flex: '0 0 50%',
+              maxWidth: '50%',
+            },
+            [theme.breakpoints.up('md')]: {
+              flex: '0 0 25%',
+              maxWidth: '25%',
+            },
+          },
+        }}>
+          <Box 
+            sx={{ 
+              width: { xs: '100%', sm: '33.3333%', md: '25%' },
+              display: 'flex',
+              justifyContent: 'center',
+              p: 2
             }}
-          />
-        </Grid>
-
-     <Grid container spacing={4} alignItems="center">
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-            <Typography variant="h5" fontWeight="600" sx={{color:"white"}}>
-              {user.username}
-            </Typography>
-            {isCurrentUser && (
-              <Button
-                variant="outlined"
-                sx={{
-                  borderColor: "white",
-                  color: "white",
-                  textTransform: "none",
-                  fontWeight: 600,
-                  "&:hover": { backgroundColor: "#fafafa" },
-                }}
-              >
-                Edit Profile
-              </Button>
-            )}
-          </Box>
-
-          {/* Stats */}
-          <Box display="flex" gap={4} mt={2} sx={{color:"white"}}>
-            <Typography variant="body1">
-              <b>{user.posts?.length || 0}</b> posts
-            </Typography>
-            <Typography variant="body1">
-              <b>{user.followers}</b> followers
-            </Typography>
-            <Typography variant="body1">
-              <b>{user.following}</b> following
-            </Typography>
-          </Box>
-
-          {/* Bio */}
-          <Typography
-            variant="body2"
-            color="white"
-            sx={{ mt: 2, maxWidth: 400 }}
           >
-            {user.bio}
-          </Typography>
-        </Grid>
-      </Grid>
+            <Avatar
+              src={user.profilePicture}
+              alt={user.username}
+              sx={{
+                width: 140,
+                height: 140,
+                border: "3px solid #e1306c",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            />
+          </Box>
 
-      {/* Divider */}
-      <Box
-        sx={{
-          mt: 5,
-          mb: 4,
-          height: "1px",
-          backgroundColor: "white",
-        }}
-      />
+          <Box sx={{ 
+            width: { xs: '100%', sm: '66.6667%', md: '75%' },
+            p: 2
+          }}>
+            <Box display="flex" flexDirection="column" gap={2}>
+              {/* Username + Button */}
+              <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+                <Typography
+                  variant="h5"
+                  fontWeight={600}
+                  sx={{ color: "text.primary" }}
+                >
+                  {user.username}
+                </Typography>
 
-      {/* Posts Grid */}
-      {user.posts?.length > 0 ? (
-        <Grid container spacing={1}>
-          {user.posts.map((post) => (
-            <Grid container spacing={4} alignItems="center" key={post.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  position: "relative",
-                  aspectRatio: "1 / 1",
-                  cursor: "pointer",
-                  overflow: "hidden",
-                }}
+                {isCurrentUser ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      borderColor: "#e1306c",
+                      color: "#e1306c",
+                      "&:hover": {
+                        backgroundColor: "rgba(225, 48, 108, 0.1)",
+                        borderColor: "#e1306c",
+                      },
+                    }}
+                  >
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <Button
+                    variant={isFollowing ? "outlined" : "contained"}
+                    onClick={handleFollowToggle}
+                    disabled={isLoadingFollow}
+                    sx={{
+                      minWidth: 100,
+                      textTransform: "none",
+                      fontWeight: 600,
+                      ...(isFollowing 
+                        ? {
+                            borderColor: "#e0e0e0",
+                            color: "text.primary",
+                            "&:hover": {
+                              backgroundColor: "rgba(0, 0, 0, 0.04)",
+                              borderColor: "#bdbdbd",
+                            }
+                          }
+                        : {
+                            background: "linear-gradient(45deg, #fd1d1d, #e1306c)",
+                            "&:hover": { opacity: 0.9 },
+                          }
+                      ),
+                    }}
+                  >
+                    {isLoadingFollow ? (
+                      <CircularProgress size={24} color="inherit" />
+                    ) : isFollowing ? (
+                      "Following"
+                    ) : (
+                      "Follow"
+                    )}
+                  </Button>
+                )}
+              </Box>
+
+              {/* Stats Row */}
+              <Box display="flex" gap={4} sx={{ color: "text.primary" }}>
+                <Typography variant="body1">
+                  <b>{user.posts?.length || 0}</b> posts
+                </Typography>
+                <Typography variant="body1">
+                  <b>{followersCount}</b> followers
+                </Typography>
+                <Typography variant="body1">
+                  <b>{user.following}</b> following
+                </Typography>
+              </Box>
+
+              {/* Bio */}
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ maxWidth: 500 }}
               >
-                <Box
-                  component="img"
-                  src={post.imageUrl}
-                  alt={post.caption}
-                  sx={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    transition: "opacity 0.2s ease-in-out",
-                    "&:hover": { opacity: 0.8 },
-                  }}
-                />
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Box textAlign="center" py={10}>
-          <Typography variant="body1" color="white">
-            No posts yet
-          </Typography>
+                {user.bio}
+              </Typography>
+            </Box>
+          </Box>
         </Box>
-      )}
-    </Container>
+
+        <Divider sx={{ my: 4 }} />
+
+        {/* Tabs */}
+        <Tabs
+          value={tab}
+          onChange={(_, newValue) => setTab(newValue)}
+          centered
+          textColor="secondary"
+          indicatorColor="secondary"
+          sx={{
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 600,
+              color: "text.secondary",
+            },
+            "& .Mui-selected": { color: "#e1306c" },
+          }}
+        >
+          <Tab icon={<GridOn />} iconPosition="start" label="Posts" />
+          <Tab icon={<BookmarkBorder />} iconPosition="start" label="Saved" />
+        </Tabs>
+
+        {/* Posts Grid */}
+        {tab === 0 && (
+          <>
+            {user.posts?.length > 0 ? (
+              <Box sx={{ 
+          display: 'grid',
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+          gap: 2,
+          mt: 2
+        }}>
+                {user.posts.map((post) => (
+                  <Box sx={{
+                width: '100%',
+                aspectRatio: '1',
+                overflow: 'hidden',
+                borderRadius: 1,
+                '&:hover': {
+                  opacity: 0.9,
+                },
+              }}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        position: "relative",
+                        aspectRatio: "1 / 1",
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        borderRadius: 2,
+                        "&:hover img": {
+                          transform: "scale(1.05)",
+                        },
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={post.imageUrl}
+                        alt={post.caption}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transition: "transform 0.3s ease-in-out",
+                        }}
+                      />
+                    </Paper>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box textAlign="center" py={10}>
+                <Typography variant="body1" color="text.secondary">
+                  No posts yet
+                </Typography>
+              </Box>
+            )}
+          </>
+        )}
+
+        {tab === 1 && (
+          <Box textAlign="center" py={10}>
+            <Typography variant="body1" color="text.secondary">
+              Saved posts will appear here
+            </Typography>
+          </Box>
+        )}
+      </Container>
+    </Box>
   );
 };
 

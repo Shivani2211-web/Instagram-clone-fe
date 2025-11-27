@@ -67,6 +67,7 @@ interface MessageContextType {
   setTyping: (isTyping: boolean, recipientId: string) => void;
   verifyMessageIntegrity: (messageId: string) => Promise<boolean>;
   retryFailedMessage: (messageId: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
 }
 
 const MessageContext = createContext<MessageContextType | undefined>(undefined);
@@ -478,51 +479,7 @@ const loadConversation = useCallback(async (userId: string) => {
   }, [socket, currentRecipient, currentUser]);
   
   const verifyMessageIntegrity = async (messageId: string): Promise<boolean> => {
-    try {
-      const response = await api.get(`/messages/${messageId}/verify`);
-      return response.data.isValid;
-    } catch (err) {
-      console.error('Failed to verify message integrity:', err);
-      return false;
-    }
-  };
-  
-  const retryFailedMessage = async (messageId: string) => {
-    const message = currentConversation.find(msg => msg._id === messageId);
     if (!message) return;
-    
-    try {
-      // Update status to sending
-      setCurrentConversation(prev => 
-        prev.map(msg => 
-          msg._id === messageId 
-            ? { ...msg, status: 'sending' }
-            : msg
-        )
-      );
-      
-      // Resend the message
-      const response = await api.post('/messages', {
-        recipientId: message.recipient._id,
-        content: message.content
-      });
-      
-      // Update with new message from server
-      setCurrentConversation(prev => 
-        prev.map(msg => 
-          msg._id === messageId 
-            ? { ...response.data, status: 'sent' }
-            : msg
-        )
-      );
-      
-      // Update conversation list
-      updateConversationList(response.data);
-      
-      return response.data;
-    } catch (err) {
-      // Update status back to failed
-      setCurrentConversation(prev => 
         prev.map(msg => 
           msg._id === messageId 
             ? { ...msg, status: 'failed' }
@@ -569,6 +526,7 @@ const loadConversation = useCallback(async (userId: string) => {
         setTyping,
         verifyMessageIntegrity,
         retryFailedMessage,
+        deleteMessage,
       }}
     >
       {children}

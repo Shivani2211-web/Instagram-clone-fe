@@ -1,37 +1,34 @@
-import axios from 'axios';
+import api from '../api/api';
 
-const API_URL = 'http://localhost:5000/api/v1';
-
-export const getNotifications = async (page = 1, limit = 20) => {
-  const token = localStorage.getItem('token');
-  const response = await axios.get(`${API_URL}/notifications`, {
-    params: { page, limit },
-    headers: { Authorization: `Bearer ${token}` }
-  });
+export const getNotifications = async (params: { page?: number; limit?: number; unread?: boolean } = {}) => {
+  const response = await api.get('/notifications', { params });
   return response.data;
 };
 
 export const getUnreadCount = async () => {
-  const token = localStorage.getItem('token');
-  const response = await axios.get(`${API_URL}/notifications/unread-count`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const response = await api.get('/notifications/unread-count');
   return response.data.data?.count || 0;
 };
 
-export const markAsRead = async (notificationIds: string[]) => {
-  const token = localStorage.getItem('token');
-  await axios.put(
-    `${API_URL}/notifications/read`,
-    { notificationIds },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+/**
+ * Mark notifications as read
+ * @param notificationIds - Single notification ID as string or array of notification IDs
+ */
+export const markAsRead = async (notificationIds: string | string[]) => {
+  if (Array.isArray(notificationIds)) {
+    // Handle single notification ID
+    await api.patch(`/notifications/${notificationIds}/read`);
+  }
+};
+
+/**
+ * Alias for marking a single notification as read
+ * @deprecated Use markAsRead instead for consistency
+ */
+export const markNotificationAsRead = async (notificationId: string) => {
+  return markAsRead(notificationId);
 };
 
 export const deleteNotifications = async (notificationIds: string[]) => {
-  const token = localStorage.getItem('token');
-  await axios.delete(`${API_URL}/notifications`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { notificationIds }
-  });
+  await api.delete('/notifications', { data: { notificationIds } });
 };

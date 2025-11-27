@@ -1,69 +1,157 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { 
+  Avatar, 
+  Box, 
+  IconButton, 
+  ListItem, 
+  ListItemAvatar, 
+  ListItemText, 
+  Typography, 
+  useTheme,
+  ListItemSecondaryAction,
+  Paper
+} from '@mui/material';
+import { Close as CloseIcon } from '@mui/icons-material';
 
 interface NotificationItemProps {
-  notification: any;
-  onMarkAsRead: (id: string) => void;
-  onDelete: (id: string) => void;
+  id: string;
+  text: string;
+  time: string;
+  read: boolean;
+  avatar?: string;
+  onMarkAsRead: () => void;
+  onDelete: () => void;
+  comment?: string | { text: string };
 }
 
-const NotificationItem: React.FC<NotificationItemProps> = ({ 
-  notification, 
-  onMarkAsRead, 
-  onDelete 
+const NotificationItem: React.FC<NotificationItemProps> = ({
+  text,
+  time,
+  read,
+  avatar,
+  comment,
+  onMarkAsRead,
+  onDelete,
 }) => {
+  const theme = useTheme();
+
   const handleClick = () => {
-    if (!notification.read) {
-      onMarkAsRead(notification._id);
+    if (!read) {
+      onMarkAsRead();
     }
   };
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete();
+  };
+
   return (
-    <div 
-      className={`p-4 border-b border-gray-100 ${!notification.read ? 'bg-blue-50' : 'bg-white'} cursor-pointer`}
+    <Paper 
+      elevation={0}
+      sx={{
+        mb: 1,
+        backgroundColor: 'background.paper',
+        '&:hover': {
+          backgroundColor: 'action.hover',
+        },
+        cursor: 'pointer',
+        transition: 'background-color 0.2s',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 0
+      }}
       onClick={handleClick}
     >
-      <div className="flex items-start">
-        <img 
-          src={notification.sender?.avatar || '/default-avatar.png'} 
-          alt={notification.sender?.username}
-          className="w-10 h-10 rounded-full mr-3"
-        />
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="font-semibold">{notification.sender?.username || 'Someone'}</span>
-              {' '}
-              <span className="text-gray-600">
-                {notification.type === 'like' && 'liked your post'}
-                {notification.type === 'comment' && 'commented on your post'}
-                {notification.type === 'follow' && 'started following you'}
-                {notification.type === 'mention' && 'mentioned you'}
-              </span>
-            </div>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(notification._id);
+      <Box sx={{ position: 'relative' }}>
+        {!read && (
+          <Box 
+            sx={{
+              position: 'absolute',
+              left: 16,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: 'primary.main',
+            }}
+          />
+        )}
+        <ListItem 
+          alignItems="flex-start"
+          sx={{
+            pl: !read ? 4 : 2,
+            py: 1.5,
+            position: 'relative',
+          }}
+        >
+          <ListItemAvatar>
+            <Avatar 
+              src={avatar || '/default-avatar.png'}
+              alt=""
+              sx={{ width: 48, height: 48 }}
+            />
+          </ListItemAvatar>
+          <ListItemText
+            primary={
+              <Typography
+                variant="body1"
+                color="text.primary"
+                sx={{ 
+                  fontWeight: read ? 'normal' : 'medium',
+                  pr: 4
+                }}
+              >
+                {text}
+              </Typography>
+            }
+            secondary={
+              <React.Fragment>
+                <Typography
+                  component="span"
+                  variant="body2"
+                  color="text.secondary"
+                >
+                  {formatDistanceToNow(new Date(time), { addSuffix: true })}
+                </Typography>
+                {comment && (
+                  <Typography
+                    component="div"
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mt: 0.5,
+                      pl: 2,
+                      borderLeft: `2px solid ${theme.palette.divider}`,
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {typeof comment === 'string' ? comment : comment.text}
+                  </Typography>
+                )}
+              </React.Fragment>
+            }
+          />
+          <ListItemSecondaryAction>
+            <IconButton
+              edge="end"
+              aria-label="delete"
+              onClick={handleDelete}
+              size="small"
+              sx={{
+                '&:hover': {
+                  color: 'error.main',
+                },
               }}
-              className="text-gray-400 hover:text-red-500"
             >
-              ×
-            </button>
-          </div>
-          {notification.comment && (
-            <p className="text-gray-600 mt-1 ml-1 pl-4 border-l-2 border-gray-200">
-              {typeof notification.comment === 'string' 
-                ? notification.comment 
-                : notification.comment.text}
-            </p>
-          )}
-          <div className="text-xs text-gray-400 mt-1">
-            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-          </div>
-        </div>
-      </div>
-    </div>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </ListItemSecondaryAction>
+        </ListItem>
+      </Box>
+    </Paper>
   );
 };
 

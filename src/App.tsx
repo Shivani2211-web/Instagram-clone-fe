@@ -8,6 +8,7 @@ import Navbar from './components/layout/Navbar';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Home from './pages/Home';
 import Direct from './pages/Direct';
 import Settings from './pages/Settings';
@@ -15,6 +16,7 @@ import CreatePost from './pages/CreatePost';
 import NotificationsPage from './pages/NotificationPage';
 import MessagesPage from './pages/MessagesPage';
 import ReelsPage from './pages/ReelsPage';
+import SearchResults from './pages/SearchResults';
 
 // ✅ Private Route (for logged-in users)
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
@@ -93,7 +95,11 @@ function AppContent() {
               </PrivateRoute>
             }
           />
-          <Route path="/messages/:userId" element={<MessagesPage />} />
+          <Route path="/messages/:userId" element={
+            <PrivateRoute>
+              <MessagesPage />
+            </PrivateRoute>
+          } />
           <Route
             path="/create"
             element={
@@ -118,14 +124,25 @@ function AppContent() {
               </PrivateRoute>
             }
           />
+          {/* User profile route */}
           <Route
-            path="/profile/:username?"
+            path="/user/:username"
+            element={
+              <PrivateRoute>
+                <UserProfile />
+              </PrivateRoute>
+            }
+          />
+          {/* Current user's profile */}
+          <Route
+            path="/profile"
             element={
               <PrivateRoute>
                 <Profile />
               </PrivateRoute>
             }
           />
+          <Route path="/search" element={<SearchResults />} />
 
           {/* Default route (404 redirect) */}
           <Route path="*" element={<Navigate to="/" replace />} />
