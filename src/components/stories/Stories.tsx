@@ -77,7 +77,21 @@ const Stories = () => {
   }, [fetchStories]);
 
   // ---- Event Handlers ----
-  const handleStoryClick = (storyId: string) => setSelectedStoryId(storyId);
+  const handleStoryClick = (storyId: string) => {
+    const story = stories.find(s => s.id === storyId);
+    if (story) {
+      setSelectedStoryId(storyId);
+      // Mark as viewed if not already
+      if (!story.isViewed) {
+        setStories(prevStories => 
+          prevStories.map(s => 
+            s.id === storyId ? { ...s, isViewed: true } : s
+          )
+        );
+        // You might want to add an API call here to mark the story as viewed
+      }
+    }
+  };
   const handleCloseViewer = () => setSelectedStoryId(null);
   const handleCreateStory = () => setIsCreatingStory(true);
   const handleCloseCreateStory = () => setIsCreatingStory(false);
@@ -248,6 +262,7 @@ const Stories = () => {
         <StoryViewer
           initialStoryId={selectedStoryId}
           onClose={handleCloseViewer}
+          stories={stories}
         />
       )}
 

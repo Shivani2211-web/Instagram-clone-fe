@@ -39,10 +39,19 @@ interface MessageBubbleProps {
 const ChatContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
-  height: 'calc(100vh - 64px)',
+  height: '100vh',
   backgroundColor: theme.palette.background.default,
-  borderLeft: `1px solid ${theme.palette.divider}`,
-  position: 'relative',
+  borderLeft: 'none',
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  [theme.breakpoints.up('sm')]: {
+    position: 'relative',
+    height: 'calc(100vh - 64px)',
+    borderLeft: `1px solid ${theme.palette.divider}`
+  },
 }));
 
 const MessageBubble = styled(Paper, {
@@ -118,6 +127,14 @@ const MessageInputContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
+  position: 'fixed',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  zIndex: 10,
+  [theme.breakpoints.up('sm')]: {
+    position: 'static',
+  },
 }));
 
 const MessageInput = styled(TextField)({
@@ -224,7 +241,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   loading = false,
   onRetryMessage,
 }) => {
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState<boolean>(() => {
+    console.log('Initializing profileOpen state to false');
+    return false;
+  });
+  
+  // Debug effect to log profile dialog state changes
+  useEffect(() => {
+    console.log('Profile dialog state changed:', profileOpen, 'at:', new Date().toISOString());
+    if (profileOpen) {
+      console.trace('Profile dialog was opened from:');
+    }
+  }, [profileOpen]);
   const [tabValue, setTabValue] = useState(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -261,6 +289,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event from bubbling up to parent elements
     if (!message.trim()) return;
     
     const messageToSend = message;
@@ -293,9 +322,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return <SentIcon color="disabled" fontSize="small" />;
   };
 
-  const handleProfileClick = async () => {
-    if (!recipient) return;
+  const handleProfileClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log('Profile header clicked, opening dialog');
+    if (!recipient) {
+      console.log('No recipient, not opening dialog');
+      return;
+    }
     
+    console.log('Setting profileOpen to true');
     setProfileOpen(true);
     setProfileLoading(true);
     
@@ -422,10 +457,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Profile Dialog */}
       <Dialog 
-        open={profileOpen} 
-        onClose={() => setProfileOpen(false)}
-        maxWidth="md"
+        open={Boolean(profileOpen && recipient)} 
+        onClose={() => {
+          console.log('Dialog close button clicked');
+          setProfileOpen(false);
+        }}
+        maxWidth="sm"
         fullWidth
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('Dialog background clicked');
+        }}
       >
         <DialogTitle sx={{ borderBottom: '1px solid #eee' }}>
           <Box display="flex" alignItems="center">
@@ -543,7 +585,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       </Dialog>
 
       {/* Messages */}
-      <MessagesContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', bgcolor: '#fafafa', backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px)', backgroundSize: '20px 20px', p: 2, display: 'flex', flexDirection: 'column' }}>
+      <MessagesContainer sx={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        overflowX: 'hidden', 
+        bgcolor: '#fafafa', 
+        backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px)', 
+        backgroundSize: '20px 20px', 
+        p: 2, 
+        display: 'flex', 
+        flexDirection: 'column',
+        pb: { xs: '80px', sm: 2 }, // Add padding bottom to account for fixed input on mobile
+        height: '100%',
+        boxSizing: 'border-box',
+      }}>
         {loading && messages.length === 0 ? (
           <Box display="flex" justifyContent="center" alignItems="center" height="100%">
             <CircularProgress />

@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Box, IconButton, Avatar, Typography, CircularProgress } from '@mui/material';
 import { Close, NavigateBefore, NavigateNext } from '@mui/icons-material';
-import { useStories } from '../../hooks/api/useStories';
+// import { useStories } from '../../hooks/api/useStories';
 
 interface StoryViewerProps {
   initialStoryId: string;
+  stories: any[]; // Replace 'any' with your Story type
   onClose: () => void;
+  onStoryViewed?: (storyId: string) => Promise<void>;
 }
 
-const StoryViewer: React.FC<StoryViewerProps> = ({ initialStoryId, onClose }) => {
-  const { stories, viewStory, loading } = useStories();
+const StoryViewer: React.FC<StoryViewerProps> = ({ initialStoryId, stories, onClose, onStoryViewed }) => {
+  const [loading, setLoading] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -30,12 +32,16 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ initialStoryId, onClose }) =>
   const hasPrev = currentStoryIndex > 0;
 
   const markAsViewed = useCallback(async (storyId: string) => {
+    if (!onStoryViewed) return;
     try {
-      await viewStory(storyId);
+      setLoading(true);
+      await onStoryViewed(storyId);
     } catch (error) {
       console.error('Error marking story as viewed:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [viewStory]);
+  }, [onStoryViewed]);
 
   const startProgress = useCallback(() => {
     setProgress(0);

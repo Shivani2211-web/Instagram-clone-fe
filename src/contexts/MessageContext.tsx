@@ -436,9 +436,7 @@ const loadConversation = useCallback(async (userId: string) => {
     if (!messageIds.length || !socket) return;
     
     try {
-      await api.patch(MESSAGES.MARK_AS_READ, { messageIds });
-      
-      // Update local state
+      // First update local state for immediate feedback
       setCurrentConversation(prev => 
         prev.map(msg => 
           messageIds.includes(msg._id) 
@@ -447,7 +445,14 @@ const loadConversation = useCallback(async (userId: string) => {
         )
       );
       
-      // Emit read receipt
+      // Try to mark as read on the server if the endpoint exists
+      // try {
+      //   await api.patch(MESSAGES.MARK_AS_READ, { messageIds });
+      // } catch (err) {
+      //   console.warn('Mark as read endpoint not implemented on server. Messages will only be marked as read locally.');
+      // }
+      
+      // Emit read receipt via socket
       const message = currentConversation.find(msg => msg._id === messageIds[0]);
       if (message) {
         socket.emit('markAsRead', {
@@ -456,7 +461,7 @@ const loadConversation = useCallback(async (userId: string) => {
         });
       }
     } catch (err) {
-      console.error('Failed to mark messages as read:', err);
+      console.error('Error in markAsRead:', err);
     }
   };
   

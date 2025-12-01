@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography, Button } from '@mui/material';
+import { Refresh } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { postsAPI } from '../api/endpoints';
 import Post from '../components/posts/Post';
 import Stories from '../components/stories/Stories';
-import '../styles.css';
 
-// User type is now defined inline in the interfaces below
 
 interface Comment {
   _id: string;
@@ -35,9 +34,8 @@ interface PostType {
   createdAt: string;
 }
 
-
 const Home = () => {
-    const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const { currentUser } = useAuth();
@@ -46,46 +44,31 @@ const Home = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await postsAPI.getAllPosts();
-      console.log('Posts API Response:', response);
 
-      if (response.status !== 200) {
-        throw new Error(`Failed to fetch posts: ${response.statusText}`);
-      }
-
-      if (!response.data) {
-        throw new Error('No data received from the server');
-      }
-
-      // Handle different response formats
-      const postsData = Array.isArray(response.data) 
-        ? response.data 
-        : (response.data.data || response.data.posts || []);
-
-      if (!Array.isArray(postsData)) {
-        throw new Error('Invalid posts data format');
-      }
+      const postsData = Array.isArray(response.data)
+        ? response.data
+        : response.data.data || [];
 
       const formattedPosts = postsData.map((post: any) => ({
         _id: post._id,
         user: {
-          _id: post.user?._id || post.userId || 'unknown',
-          username: post.user?.username || 'unknown',
+          _id: post.user?._id || post.userId,
+          username: post.user?.username || "unknown",
           name: post.user?.name,
-          avatar: post.user?.avatar
+          avatar: post.user?.avatar,
         },
-        image: post.image || post.media?.[0]?.url || '',
-        caption: post.caption || '',
+        image: post.image || "",
+        caption: post.caption || "",
         likes: Array.isArray(post.likes) ? post.likes : [],
         comments: Array.isArray(post.comments) ? post.comments : [],
-        createdAt: post.createdAt || new Date().toISOString()
+        createdAt: post.createdAt || new Date().toISOString(),
       }));
 
       setPosts(formattedPosts);
     } catch (err: any) {
-      console.error('Error fetching posts:', err);
-      setError(err.message || 'Failed to load posts. Please try again later.');
+      setError("Failed to load posts. Try again.");
     } finally {
       setLoading(false);
     }
@@ -95,115 +78,134 @@ const Home = () => {
     fetchPosts();
   }, [currentUser?.id]);
 
-  const handlePostUpdate = () => {
-    // Refresh the posts list
-    fetchPosts();
-  };
+  const handlePostUpdate = () => fetchPosts();
+  const handlePostDelete = (postId: string) =>
+    setPosts((prev) => prev.filter((p) => p._id !== postId));
 
-  const handlePostDelete = (postId: string) => {
-    setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
-  };
-
+  // Loading Screen
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="80vh"
-        sx={{
-          backgroundColor: '#121212'
-        }}
-      >
-        <CircularProgress sx={{ color: '#0095f6' }} />
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress sx={{ color: "#0095f6" }} />
       </Box>
     );
   }
 
   return (
     <Box
+      component="main"
       sx={{
-        backgroundColor: '#fafafa',
-        minHeight: '100vh',
-        color: '#262626',
-        paddingTop: '30px',
+        display: "flex",
+        justifyContent: "center",
+        width: "100%",
+        backgroundColor: "background.default",
+        pt: 3,
+        pb: 8,
       }}
     >
-      <Container
-        maxWidth="md"
+      {/* MAIN WRAPPER */}
+      <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '24px',
-          padding: { xs: '0 16px', sm: '0 20px' },
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          width: "100%",
+          maxWidth: "975px",
+          gap: 4,
+          px: 2,
         }}
       >
-        {/* Stories Section */}
-        <Box 
-          sx={{
-            width: '100%',
-            backgroundColor: 'white',
-            border: '1px solid #dbdbdb',
-            borderRadius: '8px',
-            padding: '16px',
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              display: 'none',
-            },
-            scrollbarWidth: 'none',
-          }}
-        >
-          <Stories />
-        </Box>
-
-        {/* Error Message */}
-        {error && (
-          <Box 
-            sx={{ 
-              width: '100%',
-              color: 'error.main',
-              backgroundColor: 'rgba(237, 73, 86, 0.1)',
-              padding: '12px 16px',
-              borderRadius: '8px',
-              textAlign: 'center',
+        {/* LEFT FEED AREA */}
+        <Box sx={{ width: "100%", maxWidth: "614px" }}>
+          {/* STORIES */}
+          <Box
+            sx={{
+              bgcolor: "background.paper",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 3,
+              p: 2,
+              mb: 3,
+              overflowX: "auto",
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollbarWidth: "none",
+              boxShadow: 1,
             }}
           >
-            {error}
+            <Stories />
           </Box>
-        )}
 
-        {/* Posts Feed */}
-        <Box 
-          sx={{
-            width: '100%',
-            maxWidth: '614px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px',
-            marginBottom: '30px',
-          }}
-        >
-          {posts.map((post) => (
+          {/* ERROR MESSAGE */}
+          {error && (
             <Box
-              key={post._id}
               sx={{
-                backgroundColor: 'white',
-                border: '1px solid #dbdbdb',
-                borderRadius: '8px',
-                overflow: 'hidden',
+                bgcolor: "error.light",
+                color: "error.contrastText",
+                p: 2,
+                borderRadius: 2,
+                mb: 3,
+                display: "flex",
+                justifyContent: "space-between",
               }}
             >
-              <Post
-                post={post}
-                currentUserId={currentUser?.id}
-                onUpdate={handlePostUpdate}
-                onDelete={handlePostDelete}
-              />
+              <Typography>{error}</Typography>
+              <Button onClick={fetchPosts} startIcon={<Refresh />}>
+                Retry
+              </Button>
             </Box>
-          ))}
+          )}
+
+          {/* POSTS DISPLAY */}
+          {posts.length === 0 ? (
+            <Box
+              textAlign="center"
+              p={4}
+              sx={{
+                bgcolor: "background.paper",
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                No Posts Yet
+              </Typography>
+              <Typography color="text.secondary" paragraph>
+                Follow more people to see their posts here.
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={fetchPosts}
+                startIcon={<Refresh />}
+              >
+                Refresh Feed
+              </Button>
+            </Box>
+          ) : (
+            posts.map((post) => (
+              <Box
+                key={post._id}
+                sx={{
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 3,
+                  mb: 3,
+                  overflow: "hidden",
+                  boxShadow: 1,
+                }}
+              >
+                <Post
+                  post={post}
+                  currentUserId={currentUser?.id}
+                  onUpdate={handlePostUpdate}
+                  onDelete={handlePostDelete}
+                />
+              </Box>
+            ))
+          )}
         </Box>
-      </Container>
+      </Box>
     </Box>
   );
 };

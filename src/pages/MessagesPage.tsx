@@ -11,7 +11,7 @@ import {
   ListItemButton,
   Avatar,
   ListItemText,
-  Divider,
+  Divider,  
   Paper,
   InputAdornment,
   IconButton,
@@ -226,66 +226,78 @@ const MessagesPage = () => {
       )}
 
       {/* Chat Window */}
-      {userId ? (
-        <ChatWindow
-          recipientId={userId}
-          messages={currentConversation}
-          currentUserId={currentUser?.id || ''}
-          onSendMessage={async (content) => {
-            if (userId) {
-              await sendMessage(content, userId);
-            }
-          }}
-          onTyping={(isTyping) => {
-            if (userId) {
-              setTyping(isTyping, userId);
-            }
-          }}
-          recipient={currentRecipient ? {
-            ...currentRecipient,
-            isTyping: currentRecipient.isTyping || false,
-          } : null}
-          loading={loading}
-          error={error}
-          onRetryMessage={retryFailedMessage}
-        />
-      ) : (
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            bgcolor: '#fafafa',
-          }}
-        >
-          <Paper elevation={0} sx={{ p: 5, borderRadius: 3 }}>
-            <Box
-              sx={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                bgcolor: '#f0f2f5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 2,
-              }}
-            >
-              <SendIcon sx={{ fontSize: 36, color: 'text.secondary' }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" color="textSecondary">
-                Select a conversation to start messaging
-              </Typography>
-              <Typography variant="body2" color="textSecondary" mt={2}>
-                Choose an existing conversation or start a new one
-              </Typography>
-            </Box>
-          </Paper>
-        </Box>
-      )}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {userId ? (
+          <ChatWindow
+            recipientId={userId}
+            messages={currentConversation}
+            currentUserId={currentUser?.id || ''}
+            onSendMessage={async (content) => {
+              if (userId) {
+                await sendMessage(content, userId);
+              }
+            }}
+            onTyping={(isTyping) => {
+              if (userId) {
+                setTyping(isTyping, userId);
+              }
+            }}
+            recipient={currentRecipient ? {
+              ...currentRecipient,
+              isTyping: currentRecipient.isTyping || false,
+            } : null}
+            loading={loading}
+            error={error}
+            onRetryMessage={retryFailedMessage}
+          />
+        ) : (
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              bgcolor: '#fafafa',
+              height: '100%',
+              width: '100%',
+            }}
+          >
+            <Paper elevation={0} sx={{ p: 5, borderRadius: 3 }}>
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  bgcolor: '#f0f2f5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 2,
+                  mx: 'auto',
+                }}
+              >
+                <SendIcon sx={{ fontSize: 36, color: 'text.secondary' }} />
+              </Box>
+              <Box>
+                <Typography variant="h6" color="textSecondary">
+                  Select a conversation to start messaging
+                </Typography>
+                <Typography variant="body2" color="textSecondary" mt={2}>
+                  Choose an existing conversation or start a new one
+                </Typography>
+              </Box>
+            </Paper>
+          </Box>
+        )}
+      </Box>
       <Snackbar
         open={!!error}
         autoHideDuration={6000}

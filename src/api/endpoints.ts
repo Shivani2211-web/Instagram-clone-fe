@@ -153,7 +153,7 @@ export const MESSAGES = {
   GET_CONVERSATIONS: '/messages/conversations/list',
   GET_CONVERSATION: (userId: string) => `/messages/${userId}`,
   SEND_MESSAGE: '/messages',
-  MARK_AS_READ: '/messages/mark-read',
+  // MARK_AS_READ: '/messages/mark-read',
   GET_USER: (userId: string) => `/users/${userId}`,
 };
 // Upload endpoints
@@ -419,7 +419,7 @@ export const searchAPI = {
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
     
-    return api.get(`/api/v1/search?${params.toString()}`);
+    return api.get(`/search?${params.toString()}`);
   },
 
   /**
@@ -427,7 +427,7 @@ export const searchAPI = {
    * @param query Search term for suggestions
    */
   getSearchSuggestions: (query: string) => 
-    api.get(`/api/v1/search/suggestions?q=${encodeURIComponent(query)}`),
+    api.get(`/search/suggestions?q=${encodeURIComponent(query)}`),
   
   /**
    * Search users by name, username, or email
@@ -440,7 +440,7 @@ export const searchAPI = {
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
     
-    return api.get(`/api/v1/search?${params.toString()}&type=users`);
+    return api.get(`/search?${params.toString()}&type=users`);
   },
 
   /**
@@ -454,7 +454,7 @@ export const searchAPI = {
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
     
-    return api.get(`/api/v1/search?${params.toString()}&type=hashtags`);
+    return api.get(`/search?${params.toString()}&type=hashtags`);
   },
 
   /**
@@ -468,7 +468,7 @@ export const searchAPI = {
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
     
-    return api.get(`/api/v1/search?${params.toString()}&type=reels`);
+    return api.get(`/search?${params.toString()}&type=reels`);
   },
 
   /**
@@ -482,7 +482,7 @@ export const searchAPI = {
     if (page) params.append('page', page.toString());
     if (limit) params.append('limit', limit.toString());
     
-    return api.get(`/api/v1/search?${params.toString()}&type=songs`);
+    return api.get(`/search?${params.toString()}&type=songs`);
   }
 };
 
@@ -533,7 +533,7 @@ export const ReelsApi = {
   deleteReel: (id: ReelId) => api.delete(`/reels/${id}`),
   
   // Like a reel
-  likeReel: (id: ReelId) => api.put(`/api/v1/reels/like/${id}`, {}, {
+  likeReel: (id: ReelId) => api.put(`/reels/like/${id}`, {}, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -541,7 +541,7 @@ export const ReelsApi = {
   }),
 
   // Unlike a reel
-  unlikeReel: (id: ReelId) => api.put(`/api/v1/reels/unlike/${id}`, {}, {
+  unlikeReel: (id: ReelId) => api.put(`/reels/unlike/${id}`, {}, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${localStorage.getItem('token')}`

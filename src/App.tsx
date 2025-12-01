@@ -1,8 +1,5 @@
 import React from 'react';
-import './styles.css';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { MessageProvider } from './contexts/MessageContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Navbar from './components/layout/Navbar';
 import LoginForm from './components/auth/LoginForm';
@@ -17,152 +14,83 @@ import NotificationsPage from './pages/NotificationPage';
 import MessagesPage from './pages/MessagesPage';
 import ReelsPage from './pages/ReelsPage';
 import SearchResults from './pages/SearchResults';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MessageProvider } from './contexts/MessageContext';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
 
-// ✅ Private Route (for logged-in users)
+/* -------------------- ROUTE GUARDS -------------------- */
+
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { currentUser } = useAuth();
   return currentUser ? children : <Navigate to="/login" />;
 };
 
-// ✅ Public Route (redirect if already logged in)
 const PublicRoute = ({ children }: { children: React.ReactElement }) => {
   const { currentUser } = useAuth();
   return !currentUser ? children : <Navigate to="/" />;
 };
 
-// ✅ Main app content structure
+/* -------------------- MAIN APP CONTENT -------------------- */
+
 function AppContent() {
   const location = useLocation();
-  const hideNavbar = location.pathname === '/login' || location.pathname === '/register';
-  
+  const hideNavbar = location.pathname === "/login" || location.pathname === "/register";
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="app-container">
       <NotificationProvider>
-      {/* Navbar fixed at top - hidden on login/register pages */}
-      {!hideNavbar && <Navbar />}
+        
+        {!hideNavbar && <Navbar />}
 
-      {/* Main content with conditional padding */}
-      <main className={!hideNavbar ? "pt-16 overflow-hidden" : "overflow-hidden"}>
-        <Routes>
-          {/* Public routes */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <LoginForm />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <RegisterForm />
-              </PublicRoute>
-            }
-          />
+        <main className={!hideNavbar ? "with-navbar" : ""}>
+          <div className="content-wrapper">
+            <Routes>
+              {/* PUBLIC ROUTES */}
+              <Route path="/login" element={<PublicRoute><LoginForm /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><RegisterForm /></PublicRoute>} />
 
-          {/* Protected routes */}
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <Home />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reels"
-            element={
-              <PrivateRoute>
-                <ReelsPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/direct"
-            element={
-              <PrivateRoute>
-                <Direct />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <PrivateRoute>
-                <MessagesPage />
-              </PrivateRoute>
-            }
-          />
-          <Route path="/messages/:userId" element={
-            <PrivateRoute>
-              <MessagesPage />
-            </PrivateRoute>
-          } />
-          <Route
-            path="/create"
-            element={
-              <PrivateRoute>
-                <CreatePost />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <PrivateRoute>
-                <Settings />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <PrivateRoute>
-                <NotificationsPage />
-              </PrivateRoute>
-            }
-          />
-          {/* User profile route */}
-          <Route
-            path="/user/:username"
-            element={
-              <PrivateRoute>
-                <UserProfile />
-              </PrivateRoute>
-            }
-          />
-          {/* Current user's profile */}
-          <Route
-            path="/profile"
-            element={
-              <PrivateRoute>
-                <Profile />
-              </PrivateRoute>
-            }
-          />
-          <Route path="/search" element={<SearchResults />} />
-
-          {/* Default route (404 redirect) */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+              {/* PROTECTED ROUTES */}
+              <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+              <Route path="/reels" element={<PrivateRoute><ReelsPage /></PrivateRoute>} />
+              <Route path="/direct" element={<PrivateRoute><Direct /></PrivateRoute>} />
+              <Route path="/messages" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+              <Route path="/messages/:userId" element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+              <Route path="/create" element={<PrivateRoute><CreatePost /></PrivateRoute>} />
+              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/notifications" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
+              <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+              
+              {/* SEARCH */}
+              <Route path="/search" element={<SearchResults />} />
+              
+              {/* CATCH ALL ROUTE */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </div>    
+        </main>           
       </NotificationProvider>
     </div>
   );
 }
 
-// App wrapper with Router + AuthProvider
+/* -------------------- APP WRAPPER -------------------- */
+
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <MessageProvider>
-          <AppContent />
-        </MessageProvider>
-      </AuthProvider>
-    </Router>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+
+      {/* FIX: Router MUST wrap AppContent */}
+      <Router>
+        <AuthProvider>
+          <MessageProvider>
+            <AppContent />
+          </MessageProvider>
+        </AuthProvider>
+      </Router>
+    </ThemeProvider>
   );
 }
 
